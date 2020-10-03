@@ -322,7 +322,7 @@ namespace Orleans.IdentityStore.Stores
             ThrowIfDisposed();
             cancellationToken.ThrowIfCancellationRequested();
 
-            var ids = await _client.GetGrain<IIdentityClaimGrain>(claim.GetGrainKey()).GetUserIds();
+            var ids = await _client.GetGrain(claim).GetUserIds();
 
             return (await Task.WhenAll(ids.Select(i => UserGrain(i).Get()))).ToList();
         }

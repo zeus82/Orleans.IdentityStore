@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Hosting;
+﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Hosting;
 using Orleans.Hosting;
 using Orleans.TestingHost;
 using System;
@@ -36,6 +37,7 @@ namespace Orleans.IdentityStore.Tests
             {
                 siloBuilder
                     .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(TestUser).Assembly).WithReferences())
+                    .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(IdentityUser<Guid>).Assembly).WithReferences())
                     .UseOrleanIdentityStore();
             }
 

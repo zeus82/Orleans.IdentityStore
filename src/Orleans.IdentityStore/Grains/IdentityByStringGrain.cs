@@ -7,12 +7,38 @@ namespace Orleans.IdentityStore.Grains
 {
     public interface IIdentityByStringGrain : IGrainWithStringKey
     {
+        /// <summary>
+        /// Clears the user ID associated with given string
+        /// </summary>
         Task ClearId();
 
+        /// <summary>
+        /// Returns the user ID associated with the string
+        /// </summary>
         [AlwaysInterleave]
         Task<Guid?> GetId();
 
+        /// <summary>
+        /// Sets the user ID associated with given string
+        /// </summary>
+        /// <param name="id">The user Id</param>
         Task SetId(Guid id);
+    }
+
+    public interface IIdentityRoleByNameGrain : IIdentityByStringGrain
+    {
+    }
+
+    public interface IIdentityUserByEmailGrain : IIdentityByStringGrain
+    {
+    }
+
+    public interface IIdentityUserByLoginGrain : IIdentityByStringGrain
+    {
+    }
+
+    public interface IIdentityUserByNameGrain : IIdentityByStringGrain
+    {
     }
 
     internal class IdentityByStingState
@@ -20,12 +46,13 @@ namespace Orleans.IdentityStore.Grains
         public Guid? Id { get; set; }
     }
 
-    internal abstract class IdentityByStringGrain : Grain, IIdentityRoleByNameGrain, IIdentityUserByEmailGrain, IIdentityUserByLoginGrain, IIdentityUserByNameGrain
+    internal class IdentityByStringGrain : Grain, IIdentityRoleByNameGrain, IIdentityUserByEmailGrain, IIdentityUserByLoginGrain, IIdentityUserByNameGrain
 
     {
         private readonly IPersistentState<IdentityByStingState> _data;
 
-        protected IdentityByStringGrain(IPersistentState<IdentityByStingState> data)
+        public IdentityByStringGrain(
+            [PersistentState("IdentityByString", OrleansIdentityConstants.OrleansStorageProvider)] IPersistentState<IdentityByStingState> data)
         {
             _data = data;
         }

@@ -1,12 +1,12 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
-using Orleans.Hosting;
+using Orleans.IdentityStore;
 using Orleans.IdentityStore.Grains;
 using Orleans.IdentityStore.Tools;
 using System.Collections.Generic;
 
-namespace Orleans.IdentityStore
+namespace Orleans.Hosting
 {
     /// <summary>
     /// Silo hosting extensions
@@ -33,7 +33,7 @@ namespace Orleans.IdentityStore
             };
 
             return builder
-                .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(IdentityClaimGrain).Assembly).WithReferences());
+                .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(IdentityByStringGrain).Assembly).WithReferences());
         }
 
         /// <summary>
@@ -55,7 +55,7 @@ namespace Orleans.IdentityStore
             };
 
             return builder
-                .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(IdentityClaimGrain).Assembly).WithReferences());
+                .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(IdentityByStringGrain).Assembly).WithReferences());
         }
     }
 }

@@ -94,8 +94,14 @@ namespace Orleans.IdentityStore.Grains
         {
             if (Exists && claims?.Count > 0)
             {
-                _data.State.Claims.AddRange(claims);
-                return _data.WriteStateAsync();
+                var tasks = new List<Task>();
+                foreach (var c in claims)
+                {
+                    _data.State.Claims.Add(c);
+                    tasks.Add(GrainFactory.GetGrain(c).AddUserId(_id));
+                }
+                tasks.Add(_data.WriteStateAsync());
+                return Task.WhenAll(tasks);
             }
 
             return Task.CompletedTask;
@@ -147,8 +153,6 @@ namespace Orleans.IdentityStore.Grains
 
             await GrainFactory.GetGrain<IIdentityUserByEmailGrain>(user.NormalizedEmail).SetId(user.Id);
             await GrainFactory.GetGrain<IIdentityUserByNameGrain>(user.NormalizedUserName).SetId(user.Id);
-            //TODO
-            //await GrainFactory.GetGrain<IIdentityUserByLoginGrain<TUser, TRole>>(user.Logins[0]).SetId(user.Id);
             await _data.WriteStateAsync();
 
             return IdentityResult.Success;
@@ -230,19 +234,21 @@ namespace Orleans.IdentityStore.Grains
         public Task RemoveClaims(IList<Claim> claims)
         {
             var writeRequired = false;
+            var tasks = new List<Task>();
             foreach (var c in claims)
             {
                 foreach (var m in _data.State.Claims.Where(uc => uc.ClaimValue == c.Value && uc.ClaimType == c.Type))
                 {
                     writeRequired = true;
                     _data.State.Claims.Remove(m);
+                    tasks.Add(GrainFactory.GetGrain(m).RemoveUserId(_id));
                 }
             }
 
             if (writeRequired)
-                return _data.WriteStateAsync();
+                tasks.Add(_data.WriteStateAsync());
 
-            return Task.CompletedTask;
+            return Task.WhenAll(tasks);
         }
 
         public Task RemoveLogin(string loginProvider, string providerKey)
@@ -253,7 +259,8 @@ namespace Orleans.IdentityStore.Grains
                 if (loginToRemove != null)
                 {
                     _data.State.Logins.Remove(loginToRemove);
-                    return _data.WriteStateAsync();
+
+                    return Task.WhenAll(_data.WriteStateAsync(), GrainFactory.GetGrain(loginToRemove).ClearId());
                 }
             }
 
@@ -295,13 +302,18 @@ namespace Orleans.IdentityStore.Grains
 
             if (matchedClaims.Any())
             {
+                var tasks = new List<Task>();
                 foreach (var c in matchedClaims)
                 {
+                    tasks.Add(GrainFactory.GetGrain(c).RemoveUserId(_id));
                     c.ClaimValue = newClaim.Value;
                     c.ClaimType = newClaim.Type;
+                    tasks.Add(GrainFactory.GetGrain(c).AddUserId(_id));
                 }
 
-                return _data.WriteStateAsync();
+                tasks.Add(_data.WriteStateAsync());
+
+                return Task.WhenAll(tasks);
             }
 
             return Task.CompletedTask;

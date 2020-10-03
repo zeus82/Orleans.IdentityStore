@@ -75,6 +75,32 @@ namespace Orleans.IdentityStore.Tests
             Assert.Equal(user.Email, userByName.Email);
         }
 
+        [Fact]
+        public async Task CanDeleteUser()
+        {
+            var userId = Guid.NewGuid();
+            var username = $"{userId}";
+            var user = new TestUser
+            {
+                Id = userId,
+                NormalizedEmail = username + "@test.com",
+                Email = username + "@test.com",
+                UserName = username,
+                NormalizedUserName = username
+            };
+
+            var store = GetSubject();
+
+            await store.CreateAsync(user);
+            await store.DeleteAsync(user);
+
+            var userById = await store.FindByIdAsync(user.Id.ToString());
+            var userByName = await store.FindByEmailAsync(username + "@test.com");
+
+            Assert.Null(userById);
+            Assert.Null(userByName);
+        }
+
         private OrleansUserStore<TestUser, IdentityRole<Guid>> GetSubject()
         {
             var roleStore = new OrleansRoleStore<TestUser, IdentityRole<Guid>>(_cluster.Client);

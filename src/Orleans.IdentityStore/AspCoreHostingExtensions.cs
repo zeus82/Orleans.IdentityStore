@@ -1,12 +1,11 @@
 ﻿using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
 using Orleans.IdentityStore.Stores;
 using Orleans.IdentityStore.Tools;
 using System;
 using System.Collections.Generic;
 
-namespace Orleans.IdentityStore
+namespace Microsoft.Extensions.DependencyInjection
 {
     /// <summary>
     /// Hosting extensions

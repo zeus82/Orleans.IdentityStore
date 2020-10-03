@@ -4,35 +4,85 @@
         <name>Orleans.IdentityStore</name>
     </assembly>
     <members>
-        <member name="T:Orleans.IdentityStore.AspCoreHostingExtensions">
+        <member name="T:Microsoft.Extensions.DependencyInjection.AspCoreHostingExtensions">
             <summary>
             Hosting extensions
             </summary>
         </member>
-        <member name="M:Orleans.IdentityStore.AspCoreHostingExtensions.AddOrleansStores(Microsoft.AspNetCore.Identity.IdentityBuilder)">
+        <member name="M:Microsoft.Extensions.DependencyInjection.AspCoreHostingExtensions.AddOrleansStores(Microsoft.AspNetCore.Identity.IdentityBuilder)">
             <summary>
             Use orleans as your user store
             </summary>
             <param name="builder">Identity builder</param>
         </member>
-        <member name="T:Orleans.IdentityStore.SiloBuilderExtensions">
+        <member name="T:Orleans.Extensions">
             <summary>
-            Silo hosting extensions
+            Grain Factory extensions
             </summary>
         </member>
-        <member name="M:Orleans.IdentityStore.SiloBuilderExtensions.UseOrleanIdentityStore(Orleans.Hosting.ISiloBuilder)">
+        <member name="M:Orleans.Extensions.Role``2(Orleans.IGrainFactory,System.Guid)">
             <summary>
-            Add identity store to orleans. Grain storage provider name can be found at <see
-            cref="F:Orleans.IdentityStore.OrleansIdentityConstants.OrleansStorageProvider"/> ///
+            Returns the role grain
             </summary>
-            <param name="builder">Silo builder</param>
+            <typeparam name="TUser">The user type</typeparam>
+            <typeparam name="TRole">The role type</typeparam>
+            <param name="factory">Grain factory</param>
+            <param name="id">Role Id</param>
         </member>
-        <member name="M:Orleans.IdentityStore.SiloBuilderExtensions.UseOrleanIdentityStore(Orleans.Hosting.ISiloHostBuilder)">
+        <member name="M:Orleans.Extensions.Role``1(Orleans.IGrainFactory,System.Guid)">
             <summary>
-            Add identity store to orleans. Grain storage provider name can be found at <see
-            cref="F:Orleans.IdentityStore.OrleansIdentityConstants.OrleansStorageProvider"/> ///
+            Returns the role grain
             </summary>
-            <param name="builder">Silo builder</param>
+            <typeparam name="TUser">The user type</typeparam>
+            <param name="factory">Grain factory</param>
+            <param name="id">Role Id</param>
+        </member>
+        <member name="M:Orleans.Extensions.Role(Orleans.IGrainFactory,System.Guid)">
+            <summary>
+            Returns the role grain
+            </summary>
+            <param name="factory">Grain factory</param>
+            <param name="id">Role Id</param>
+        </member>
+        <member name="M:Orleans.Extensions.User(Orleans.IGrainFactory,System.Guid)">
+            <summary>
+            Returns the user grain
+            </summary>
+            <param name="factory">Grain factory</param>
+            <param name="id">User Id</param>
+        </member>
+        <member name="M:Orleans.Extensions.User``1(Orleans.IGrainFactory,System.Guid)">
+            <summary>
+            Returns the user grain
+            </summary>
+            <typeparam name="TUser">The user type</typeparam>
+            <param name="factory">Grain factory</param>
+            <param name="id">User Id</param>
+        </member>
+        <member name="M:Orleans.Extensions.User``2(Orleans.IGrainFactory,System.Guid)">
+            <summary>
+            Returns the user grain
+            </summary>
+            <typeparam name="TUser">The user type</typeparam>
+            <typeparam name="TRole">The role type</typeparam>
+            <param name="factory">Grain factory</param>
+            <param name="id">User Id</param>
+        </member>
+        <member name="M:Orleans.IdentityStore.Grains.IIdentityByStringGrain.ClearId">
+            <summary>
+            Clears the user ID associated with given string
+            </summary>
+        </member>
+        <member name="M:Orleans.IdentityStore.Grains.IIdentityByStringGrain.GetId">
+            <summary>
+            Returns the user ID associated with the string
+            </summary>
+        </member>
+        <member name="M:Orleans.IdentityStore.Grains.IIdentityByStringGrain.SetId(System.Guid)">
+            <summary>
+            Sets the user ID associated with given string
+            </summary>
+            <param name="id">The user Id</param>
         </member>
         <member name="M:Orleans.IdentityStore.Stores.OrleansRoleStore`2.AddClaimAsync(`1,System.Security.Claims.Claim,System.Threading.CancellationToken)">
             <summary>
@@ -442,6 +492,25 @@
             The <see cref="T:System.Threading.Tasks.Task"/> that represents the asynchronous operation, containing the <see
             cref="T:Microsoft.AspNetCore.Identity.IdentityResult"/> of the update operation.
             </returns>
+        </member>
+        <member name="T:Orleans.Hosting.SiloBuilderExtensions">
+            <summary>
+            Silo hosting extensions
+            </summary>
+        </member>
+        <member name="M:Orleans.Hosting.SiloBuilderExtensions.UseOrleanIdentityStore(Orleans.Hosting.ISiloBuilder)">
+            <summary>
+            Add identity store to orleans. Grain storage provider name can be found at <see
+            cref="F:Orleans.IdentityStore.OrleansIdentityConstants.OrleansStorageProvider"/> ///
+            </summary>
+            <param name="builder">Silo builder</param>
+        </member>
+        <member name="M:Orleans.Hosting.SiloBuilderExtensions.UseOrleanIdentityStore(Orleans.Hosting.ISiloHostBuilder)">
+            <summary>
+            Add identity store to orleans. Grain storage provider name can be found at <see
+            cref="F:Orleans.IdentityStore.OrleansIdentityConstants.OrleansStorageProvider"/> ///
+            </summary>
+            <param name="builder">Silo builder</param>
         </member>
     </members>
 </doc>
