@@ -12,17 +12,15 @@ using System.Threading.Tasks;
 /// </summary>
 namespace Orleans.IdentityStore.Grains
 {
-    public interface IIdentityUserGrain<TUser, TRole, TUserClaim, TUserLogin, TUserToken, TRoleClaim> : IGrainWithGuidKey
+    public interface IIdentityUserGrain<TUser, TRole> : IGrainWithGuidKey
         where TUser : IdentityUser<Guid>
         where TRole : IdentityRole<Guid>
-        where TUserClaim : IdentityUserClaim<Guid>, new()
-        where TUserLogin : IdentityUserLogin<Guid>, new()
-        where TUserToken : IdentityUserToken<Guid>, new()
-        where TRoleClaim : IdentityRoleClaim<Guid>, new()
     {
-        Task AddClaims(IList<TUserClaim> claims);
+        Task AddClaims(IList<IdentityUserClaim<Guid>> claims);
 
-        Task AddLogin(TUserLogin login);
+        Task AddLogin(IdentityUserLogin<Guid> login);
+
+        Task AddToken(IdentityUserToken<Guid> token);
 
         Task AddToRole(Guid roleId);
 
@@ -36,70 +34,102 @@ namespace Orleans.IdentityStore.Grains
         [AlwaysInterleave]
         Task<TUser> Get();
 
-        Task<IList<TUserClaim>> GetClaims();
+        Task<IList<IdentityUserClaim<Guid>>> GetClaims();
 
         [AlwaysInterleave]
-        Task<IList<TUserLogin>> GetLogins();
+        Task<IdentityUserLogin<Guid>> GetLogin(string loginProvider, string providerKey);
+
+        [AlwaysInterleave]
+        Task<IList<IdentityUserLogin<Guid>>> GetLogins();
 
         [AlwaysInterleave]
         Task<IList<string>> GetRoles();
 
-        Task<TUserToken> GetToken(string loginProvider, string name);
+        [AlwaysInterleave]
+        Task<IdentityUserToken<Guid>> GetToken(string loginProvider, string name);
 
         Task RemoveClaims(IList<Claim> claims);
 
         Task RemoveLogin(string loginProvider, string providerKey);
 
-        Task RemoveRole(Guid id);
+        Task RemoveRole(Guid id, bool updateRoleGrain);
+
+        Task RemoveToken(IdentityUserToken<Guid> token);
 
         Task ReplaceClaims(Claim claim, Claim newClaim);
 
         Task<IdentityResult> Update(TUser user);
     }
 
-    internal class IdentityUserGrain<TUser, TRole, TUserClaim, TUserLogin, TUserToken, TRoleClaim> :
-        Grain, IIdentityUserGrain<TUser, TRole, TUserClaim, TUserLogin, TUserToken, TRoleClaim>
+    internal class IdentityUserGrain<TUser, TRole> :
+        Grain, IIdentityUserGrain<TUser, TRole>
         where TUser : IdentityUser<Guid>, new()
         where TRole : IdentityRole<Guid>, new()
-        where TUserClaim : IdentityUserClaim<Guid>, new()
-        where TUserLogin : IdentityUserLogin<Guid>, new()
-        where TUserToken : IdentityUserToken<Guid>, new()
-        where TRoleClaim : IdentityRoleClaim<Guid>, new()
     {
-        private readonly IPersistentState<IdentityUserGrainState<TUser, TRole, TUserClaim, TUserLogin, TUserToken, TRoleClaim>> _data;
+        private readonly IPersistentState<IdentityUserGrainState<TUser, TRole>> _data;
 
         private Guid _id;
 
         public IdentityUserGrain(
                     [PersistentState("IdentityUser", OrleansIdentityConstants.OrleansStorageProvider)]
-        IPersistentState<IdentityUserGrainState<TUser, TRole, TUserClaim, TUserLogin, TUserToken, TRoleClaim>> data)
+        IPersistentState<IdentityUserGrainState<TUser, TRole>> data)
         {
             _data = data;
         }
 
-        public Task AddClaims(IList<TUserClaim> claims)
+        private bool Exists => _data.State?.User != null;
+
+        public Task AddClaims(IList<IdentityUserClaim<Guid>> claims)
         {
-            throw new NotImplementedException();
+            if (Exists && claims?.Count > 0)
+            {
+                _data.State.Claims.AddRange(claims);
+                return _data.WriteStateAsync();
+            }
+
+            return Task.CompletedTask;
         }
 
-        public Task AddLogin(TUserLogin login)
+        public Task AddLogin(IdentityUserLogin<Guid> login)
         {
-            throw new NotImplementedException();
+            if (Exists && login != null)
+            {
+                _data.State.Logins.Add(login);
+                return _data.WriteStateAsync();
+            }
+
+            return Task.CompletedTask;
+        }
+
+        public Task AddToken(IdentityUserToken<Guid> token)
+        {
+            if (Exists && token != null)
+            {
+                _data.State.Tokens.Add(token);
+                return _data.WriteStateAsync();
+            }
+
+            return Task.CompletedTask;
         }
 
         public Task AddToRole(Guid roleId)
         {
-            throw new NotImplementedException();
+            if (Exists && _data.State.Roles.Add(roleId))
+            {
+                return _data.WriteStateAsync();
+            }
+
+            return Task.CompletedTask;
         }
 
         public Task<bool> ContainsRole(Guid id)
         {
-            throw new NotImplementedException();
+            return Task.FromResult(Exists && _data.State.Roles.Contains(id));
         }
 
         public async Task<IdentityResult> Create(TUser user)
         {
-            if (_data.State.User != null || string.IsNullOrEmpty(user.NormalizedEmail) || string.IsNullOrEmpty(user.NormalizedUserName))
+            if (Exists || string.IsNullOrEmpty(user.NormalizedEmail) || string.IsNullOrEmpty(user.NormalizedUserName))
                 return IdentityResult.Failed();
 
             _data.State.User = user;
@@ -120,6 +150,7 @@ namespace Orleans.IdentityStore.Grains
 
             await GrainFactory.GetGrain<IIdentityUserByEmailGrain>(_data.State.User.NormalizedEmail).ClearId();
             await GrainFactory.GetGrain<IIdentityUserByNameGrain>(_data.State.User.NormalizedUserName).ClearId();
+            await Task.WhenAll(_data.State.Roles.Select(r => GrainFactory.GetGrain<IIdentityRoleGrain<TUser, TRole>>(r).RemoveUser(_id)));
             await _data.ClearStateAsync();
 
             return IdentityResult.Success;
@@ -130,19 +161,53 @@ namespace Orleans.IdentityStore.Grains
             return Task.FromResult(_data.State.User);
         }
 
-        public Task<IList<TUserClaim>> GetClaims()
+        public Task<IList<IdentityUserClaim<Guid>>> GetClaims()
         {
-            throw new NotImplementedException();
+            if (Exists)
+            {
+                return Task.FromResult<IList<IdentityUserClaim<Guid>>>(_data.State.Claims);
+            }
+            return Task.FromResult<IList<IdentityUserClaim<Guid>>>(null);
         }
 
-        public Task<IList<TUserLogin>> GetLogins()
+        public Task<IdentityUserLogin<Guid>> GetLogin(string loginProvider, string providerKey)
         {
-            throw new NotImplementedException();
+            if (Exists)
+            {
+                return Task.FromResult(_data.State.Logins.Find(l => l.LoginProvider == loginProvider && l.ProviderKey == providerKey));
+            }
+            return Task.FromResult<IdentityUserLogin<Guid>>(null);
         }
 
-        public Task<ISet<string>> GetRoles()
+        public Task<IList<IdentityUserLogin<Guid>>> GetLogins()
         {
-            throw new NotImplementedException();
+            if (Exists)
+            {
+                return Task.FromResult<IList<IdentityUserLogin<Guid>>>(_data.State.Logins);
+            }
+            return Task.FromResult<IList<IdentityUserLogin<Guid>>>(null);
+        }
+
+        public async Task<IList<string>> GetRoles()
+        {
+            if (Exists)
+            {
+                return (await Task.WhenAll(_data.State.Roles.Select(r => GrainFactory.GetGrain<IIdentityRoleGrain<TUser, TRole>>(r).Get())))
+                    .Select(r => r.Name)
+                    .ToList();
+            }
+
+            return null;
+        }
+
+        public Task<IdentityUserToken<Guid>> GetToken(string loginProvider, string name)
+        {
+            if (Exists)
+            {
+                return Task.FromResult(_data.State.Tokens.Find(t => t.LoginProvider == loginProvider && t.Name == name));
+            }
+
+            return Task.FromResult<IdentityUserToken<Guid>>(null);
         }
 
         public override Task OnActivateAsync()
@@ -156,8 +221,7 @@ namespace Orleans.IdentityStore.Grains
             var writeRequired = false;
             foreach (var c in claims)
             {
-                var matchedClaims = _data.State.Claims.Where(uc => uc.ClaimValue == c.Value && uc.ClaimType == c.Type);
-                foreach (var m in matchedClaims)
+                foreach (var m in _data.State.Claims.Where(uc => uc.ClaimValue == c.Value && uc.ClaimType == c.Type))
                 {
                     writeRequired = true;
                     _data.State.Claims.Remove(m);
@@ -166,6 +230,49 @@ namespace Orleans.IdentityStore.Grains
 
             if (writeRequired)
                 return _data.WriteStateAsync();
+
+            return Task.CompletedTask;
+        }
+
+        public Task RemoveLogin(string loginProvider, string providerKey)
+        {
+            if (Exists)
+            {
+                var loginToRemove = _data.State.Logins.Find(l => l.LoginProvider == loginProvider && l.ProviderKey == providerKey);
+                if (loginToRemove != null)
+                {
+                    _data.State.Logins.Remove(loginToRemove);
+                    return _data.WriteStateAsync();
+                }
+            }
+
+            return Task.CompletedTask;
+        }
+
+        public async Task RemoveRole(Guid id, bool updateRoleGrain)
+        {
+            if (Exists && _data.State.Roles.Remove(id))
+            {
+                if (updateRoleGrain)
+                {
+                    await GrainFactory.GetGrain<IIdentityRoleGrain<TUser, TRole>>(id).RemoveUser(_id);
+                }
+
+                await _data.WriteStateAsync();
+            }
+        }
+
+        public Task RemoveToken(IdentityUserToken<Guid> token)
+        {
+            if (Exists)
+            {
+                var tokensToRemove = _data.State.Tokens.Find(t => t.LoginProvider == token.LoginProvider && t.Name == token.Name);
+                if (tokensToRemove != null)
+                {
+                    _data.State.Tokens.Remove(tokensToRemove);
+                    return _data.WriteStateAsync();
+                }
+            }
 
             return Task.CompletedTask;
         }
@@ -213,19 +320,14 @@ namespace Orleans.IdentityStore.Grains
         }
     }
 
-    internal class IdentityUserGrainState<TUser, TRole, TUserClaim, TUserLogin, TUserToken, TRoleClaim>
+    internal class IdentityUserGrainState<TUser, TRole>
         where TUser : IdentityUser<Guid>, new()
         where TRole : IdentityRole<Guid>, new()
-        where TUserClaim : IdentityUserClaim<Guid>, new()
-        where TUserLogin : IdentityUserLogin<Guid>, new()
-        where TUserToken : IdentityUserToken<Guid>, new()
-        where TRoleClaim : IdentityRoleClaim<Guid>, new()
     {
-        public List<TUserClaim> Claims { get; set; }
-        public List<TUserLogin> Logins { get; set; }
-        public List<TRoleClaim> RoleClaims { get; set; }
-        public HashSet<Guid> Roles { get; set; }
-        public List<TUserToken> Tokens { get; set; }
+        public List<IdentityUserClaim<Guid>> Claims { get; set; } = new List<IdentityUserClaim<Guid>>();
+        public List<IdentityUserLogin<Guid>> Logins { get; set; } = new List<IdentityUserLogin<Guid>>();
+        public HashSet<Guid> Roles { get; set; } = new HashSet<Guid>();
+        public List<IdentityUserToken<Guid>> Tokens { get; set; } = new List<IdentityUserToken<Guid>>();
         public TUser User { get; set; }
     }
 }

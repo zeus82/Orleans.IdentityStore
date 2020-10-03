@@ -9,14 +9,10 @@ using System.Threading.Tasks;
 
 namespace Orleans.IdentityStore.Stores
 {
-    public class OrleansUserStore<TUser, TRole, TUserClaim, TUserLogin, TUserToken, TRoleClaim> :
-        UserStoreBase<TUser, TRole, Guid, TUserClaim, IdentityUserRole<Guid>, TUserLogin, TUserToken, TRoleClaim>
+    public class OrleansUserStore<TUser, TRole> :
+        UserStoreBase<TUser, TRole, Guid, IdentityUserClaim<Guid>, IdentityUserRole<Guid>, IdentityUserLogin<Guid>, IdentityUserToken<Guid>, IdentityRoleClaim<Guid>>
         where TUser : IdentityUser<Guid>
         where TRole : IdentityRole<Guid>
-        where TUserClaim : IdentityUserClaim<Guid>, new()
-        where TUserLogin : IdentityUserLogin<Guid>, new()
-        where TUserToken : IdentityUserToken<Guid>, new()
-        where TRoleClaim : IdentityRoleClaim<Guid>, new()
     {
         private const string ValueCannotBeNullOrEmpty = "Value cannot be null or empty";
         private readonly IClusterClient _client;
@@ -353,7 +349,7 @@ namespace Orleans.IdentityStore.Stores
             }
 
             var role = await FindRoleAsync(normalizedRoleName, cancellationToken);
-            var users = await _client.GetGrain<IIdentityRoleGrain<TRole>>(role.Id).GetUsers();
+            var users = await _client.GetGrain<IIdentityRoleGrain<TUser, TRole>>(role.Id).GetUsers();
 
             return (await Task.WhenAll(users.Select(u => UserGrain(u).Get()))).ToList();
         }
@@ -450,7 +446,7 @@ namespace Orleans.IdentityStore.Stores
             var role = await FindRoleAsync(normalizedRoleName, cancellationToken);
             if (role != null)
             {
-                await UserGrain(user.Id).RemoveRole(role.Id);
+                await UserGrain(user.Id).RemoveRole(role.Id, true);
             }
         }
 
@@ -540,10 +536,15 @@ namespace Orleans.IdentityStore.Stores
             return UserGrain(user.Id).Update(user);
         }
 
-        protected override Task AddUserTokenAsync(TUserToken token)
+        protected override Task AddUserTokenAsync(IdentityUserToken<Guid> token)
         {
             ThrowIfDisposed();
-            throw new NotImplementedException();
+            if (token == null)
+            {
+                throw new ArgumentNullException(nameof(token));
+            }
+
+            return UserGrain(token.UserId).AddToken(token);
         }
 
         protected override Task<TRole> FindRoleAsync(string normalizedRoleName, CancellationToken cancellationToken)
@@ -553,7 +554,7 @@ namespace Orleans.IdentityStore.Stores
             return _roleStore.FindByNameAsync(normalizedRoleName, cancellationToken);
         }
 
-        protected override Task<TUserToken> FindTokenAsync(TUser user, string loginProvider, string name, CancellationToken cancellationToken)
+        protected override Task<IdentityUserToken<Guid>> FindTokenAsync(TUser user, string loginProvider, string name, CancellationToken cancellationToken)
         {
             return UserGrain(user.Id).GetToken(loginProvider, name);
         }
@@ -563,14 +564,20 @@ namespace Orleans.IdentityStore.Stores
             return UserGrain(userId).Get();
         }
 
-        protected override Task<TUserLogin> FindUserLoginAsync(string loginProvider, string providerKey, CancellationToken cancellationToken)
+        protected override async Task<IdentityUserLogin<Guid>> FindUserLoginAsync(string loginProvider, string providerKey, CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            var userId = await _client.GetGrain<IIdentityUserByLoginGrain>(loginProvider + providerKey).GetId();
+            if (userId != null)
+            {
+                return await UserGrain(userId.Value).GetLogin(loginProvider, providerKey);
+            }
+
+            return null;
         }
 
-        protected override Task<TUserLogin> FindUserLoginAsync(Guid userId, string loginProvider, string providerKey, CancellationToken cancellationToken)
+        protected override Task<IdentityUserLogin<Guid>> FindUserLoginAsync(Guid userId, string loginProvider, string providerKey, CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            return UserGrain(userId).GetLogin(loginProvider, providerKey);
         }
 
         protected override async Task<IdentityUserRole<Guid>> FindUserRoleAsync(Guid userId, Guid roleId, CancellationToken cancellationToken)
@@ -586,14 +593,14 @@ namespace Orleans.IdentityStore.Stores
             return null;
         }
 
-        protected override Task RemoveUserTokenAsync(TUserToken token)
+        protected override Task RemoveUserTokenAsync(IdentityUserToken<Guid> token)
         {
-            throw new NotImplementedException();
+            return UserGrain(token.UserId).RemoveToken(token);
         }
 
-        private IIdentityUserGrain<TUser, TRole, TUserClaim, TUserLogin, TUserToken, TRoleClaim> UserGrain(Guid id)
+        private IIdentityUserGrain<TUser, TRole> UserGrain(Guid id)
         {
-            return _client.GetGrain<IIdentityUserGrain<TUser, TRole, TUserClaim, TUserLogin, TUserToken, TRoleClaim>>(id);
+            return _client.GetGrain<IIdentityUserGrain<TUser, TRole>>(id);
         }
     }
 }

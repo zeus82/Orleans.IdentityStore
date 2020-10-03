@@ -1,16 +1,20 @@
 ﻿using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.Logging;
 using Orleans.Concurrency;
 using Orleans.Runtime;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Claims;
 using System.Threading.Tasks;
 
 namespace Orleans.IdentityStore.Grains
 {
-    public interface IIdentityRoleGrain<TRole> : IGrainWithGuidKey where TRole : IdentityRole<Guid>
+    public interface IIdentityRoleGrain<TUser, TRole> : IGrainWithGuidKey
+        where TUser : IdentityUser<Guid>
+        where TRole : IdentityRole<Guid>
     {
+        Task AddClaim(IdentityRoleClaim<Guid> claim);
+
         Task AddUser(Guid id);
 
         Task<IdentityResult> Create(TRole role);
@@ -20,28 +24,48 @@ namespace Orleans.IdentityStore.Grains
         [AlwaysInterleave]
         Task<TRole> Get();
 
+        [AlwaysInterleave]
+        Task<IList<IdentityRoleClaim<Guid>>> GetClaims();
+
+        [AlwaysInterleave]
         Task<IList<Guid>> GetUsers();
+
+        Task RemoveClaim(Claim claim);
 
         Task RemoveUser(Guid id);
 
         Task<IdentityResult> Update(TRole role);
     }
 
-    internal class IdentityRoleGrain<TRole> : Grain, IIdentityRoleGrain<TRole> where TRole : IdentityRole<Guid>
+    internal class IdentityRoleGrain<TUser, TRole> : Grain, IIdentityRoleGrain<TUser, TRole>
+        where TUser : IdentityUser<Guid>
+        where TRole : IdentityRole<Guid>
     {
         private readonly IPersistentState<RoleGrainState<TRole>> _data;
-        private readonly ILogger<IdentityRoleGrain<TRole>> _logger;
+        private Guid _id;
 
-        public IdentityRoleGrain(ILogger<IdentityRoleGrain<TRole>> logger,
+        public IdentityRoleGrain(
             [PersistentState("IdentityRole", OrleansIdentityConstants.OrleansStorageProvider)] IPersistentState<RoleGrainState<TRole>> data)
         {
-            _logger = logger;
             _data = data;
+        }
+
+        private bool Exists => _data.State?.Role != null;
+
+        public Task AddClaim(IdentityRoleClaim<Guid> claim)
+        {
+            if (Exists && claim != null)
+            {
+                _data.State.Claims.Add(claim);
+                return _data.WriteStateAsync();
+            }
+
+            return Task.CompletedTask;
         }
 
         public Task AddUser(Guid id)
         {
-            if (_data.State.Users.Add(id))
+            if (Exists && _data.State.Users.Add(id))
                 return _data.WriteStateAsync();
 
             return Task.CompletedTask;
@@ -49,11 +73,11 @@ namespace Orleans.IdentityStore.Grains
 
         public async Task<IdentityResult> Create(TRole role)
         {
-            if (_data.State.Role != null)
+            if (Exists)
                 return IdentityResult.Failed();
 
             _data.State.Role = role;
-            await GrainFactory.GetGrain<IIdentityRoleByNameGrain<TRole>>(role.NormalizedName).SetId(role.Id);
+            await GrainFactory.GetGrain<IIdentityRoleByNameGrain>(role.NormalizedName).SetId(role.Id);
             await _data.WriteStateAsync();
 
             return IdentityResult.Success;
@@ -64,7 +88,8 @@ namespace Orleans.IdentityStore.Grains
             if (_data.State.Role == null)
                 return IdentityResult.Failed();
 
-            await GrainFactory.GetGrain<IIdentityRoleByNameGrain<TRole>>(_data.State.Role.NormalizedName).ClearId();
+            await GrainFactory.GetGrain<IIdentityRoleByNameGrain>(_data.State.Role.NormalizedName).ClearId();
+            await Task.WhenAll(_data.State.Users.Select(u => GrainFactory.GetGrain<IIdentityUserGrain<TUser, TRole>>(u).RemoveRole(_id, false)));
             await _data.ClearStateAsync();
 
             return IdentityResult.Success;
@@ -75,9 +100,43 @@ namespace Orleans.IdentityStore.Grains
             return Task.FromResult(_data.State.Role);
         }
 
+        public Task<IList<IdentityRoleClaim<Guid>>> GetClaims()
+        {
+            if (Exists)
+            {
+                return Task.FromResult<IList<IdentityRoleClaim<Guid>>>(_data.State.Claims);
+            }
+
+            return Task.FromResult<IList<IdentityRoleClaim<Guid>>>(null);
+        }
+
         public Task<IList<Guid>> GetUsers()
         {
             return Task.FromResult<IList<Guid>>(_data.State.Users.ToList());
+        }
+
+        public override Task OnActivateAsync()
+        {
+            _id = this.GetPrimaryKey();
+            return Task.CompletedTask;
+        }
+
+        public Task RemoveClaim(Claim claim)
+        {
+            if (Exists)
+            {
+                var writeRequired = false;
+                foreach (var m in _data.State.Claims.Where(rc => rc.ClaimValue == claim.Value && rc.ClaimType == claim.Type))
+                {
+                    writeRequired = true;
+                    _data.State.Claims.Remove(m);
+                }
+
+                if (writeRequired)
+                    return _data.WriteStateAsync();
+            }
+
+            return Task.CompletedTask;
         }
 
         public Task RemoveUser(Guid id)
@@ -102,6 +161,7 @@ namespace Orleans.IdentityStore.Grains
 
     internal class RoleGrainState<TRole>
     {
+        public List<IdentityRoleClaim<Guid>> Claims { get; set; } = new List<IdentityRoleClaim<Guid>>();
         public TRole Role { get; set; }
         public HashSet<Guid> Users { get; set; } = new HashSet<Guid>();
     }

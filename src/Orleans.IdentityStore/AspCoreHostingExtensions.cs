@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
 using Orleans.IdentityStore.Stores;
 using Orleans.IdentityStore.Tools;
+using System;
 using System.Collections.Generic;
 
 namespace Orleans.IdentityStore
@@ -19,24 +20,15 @@ namespace Orleans.IdentityStore
                 };
             };
 
-            if (builder.RoleType != null)
-            {
-                builder.Services.AddTransient(
-                    typeof(IRoleStore<>).MakeGenericType(builder.RoleType),
-                    typeof(OrleansRoleStore<>).MakeGenericType(builder.RoleType));
+            var roleType = builder.RoleType ?? typeof(IdentityRole<Guid>);
 
-                builder.Services.AddTransient(
-                typeof(IUserStore<>).MakeGenericType(builder.UserType),
-                typeof(OrleansUserStore<,>).MakeGenericType(builder.UserType, builder.RoleType));
-            }
-            else // no specified role
-            {
-                builder.Services.AddTransient<IRoleStore<OrleansIdentityRole>, OrleansRoleStore>();
+            builder.Services.AddTransient(
+                    typeof(IRoleStore<>).MakeGenericType(roleType),
+                    typeof(OrleansRoleStore<,>).MakeGenericType(builder.UserType, roleType));
 
-                builder.Services.AddTransient(
-                    typeof(IUserStore<>).MakeGenericType(builder.UserType),
-                    typeof(OrleansUserStore<>).MakeGenericType(builder.UserType));
-            }
+            builder.Services.AddTransient(
+            typeof(IUserStore<>).MakeGenericType(builder.UserType),
+            typeof(OrleansUserStore<,>).MakeGenericType(builder.UserType, roleType));
 
             builder.Services.AddSingleton<ILookupNormalizer, LookupNormalizer>();
 
