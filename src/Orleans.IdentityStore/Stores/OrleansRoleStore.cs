@@ -9,14 +9,6 @@ using System.Threading.Tasks;
 
 namespace Orleans.IdentityStore.Stores
 {
-    public class OrleansRoleStore<TUser> : OrleansRoleStore<TUser, IdentityRole<Guid>>
-        where TUser : IdentityUser<Guid>
-    {
-        public OrleansRoleStore(IClusterClient client) : base(client)
-        {
-        }
-    }
-
     public class OrleansRoleStore<TUser, TRole> : IRoleClaimStore<TRole>
         where TUser : IdentityUser<Guid>
         where TRole : IdentityRole<Guid>
@@ -336,6 +328,14 @@ namespace Orleans.IdentityStore.Stores
             {
                 throw new ObjectDisposedException(GetType().Name);
             }
+        }
+    }
+
+    public class OrleansRoleStore<TUser> : OrleansRoleStore<TUser, IdentityRole<Guid>>
+            where TUser : IdentityUser<Guid>
+    {
+        public OrleansRoleStore(IClusterClient client) : base(client)
+        {
         }
     }
 }

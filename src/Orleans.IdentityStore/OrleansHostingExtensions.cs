@@ -1,10 +1,8 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
-using Newtonsoft.Json;
 using Orleans.IdentityStore;
 using Orleans.IdentityStore.Grains;
 using Orleans.IdentityStore.Tools;
-using System.Collections.Generic;
 
 namespace Orleans.Hosting
 {
@@ -24,13 +22,13 @@ namespace Orleans.Hosting
             try { builder.AddMemoryGrainStorage(OrleansIdentityConstants.OrleansStorageProvider); }
             catch { /** PubSubStore was already added. Do nothing. **/ }
 
-            JsonConvert.DefaultSettings = () =>
-            {
-                return new JsonSerializerSettings()
-                {
-                    Converters = new List<JsonConverter>() { new JsonClaimConverter(), new JsonClaimsPrincipalConverter(), new JsonClaimsIdentityConverter() }
-                };
-            };
+            //JsonConvert.DefaultSettings = () =>
+            //{
+            //    return new JsonSerializerSettings()
+            //    {
+            //        Converters = new List<JsonConverter>() { new JsonClaimConverter(), new JsonClaimsPrincipalConverter(), new JsonClaimsIdentityConverter() }
+            //    };
+            //};
 
             return builder
                 .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(IdentityByStringGrain).Assembly).WithReferences());
@@ -46,13 +44,13 @@ namespace Orleans.Hosting
             try { builder.AddMemoryGrainStorage(OrleansIdentityConstants.OrleansStorageProvider); }
             catch { /** Grain storage provider was already added. Do nothing. **/ }
 
-            JsonConvert.DefaultSettings = () =>
-            {
-                return new JsonSerializerSettings()
-                {
-                    Converters = new List<JsonConverter>() { new JsonClaimConverter(), new JsonClaimsPrincipalConverter(), new JsonClaimsIdentityConverter() }
-                };
-            };
+            //JsonConvert.DefaultSettings = () =>
+            //{
+            //    return new JsonSerializerSettings()
+            //    {
+            //        Converters = new List<JsonConverter>() { new JsonClaimConverter(), new JsonClaimsPrincipalConverter(), new JsonClaimsIdentityConverter() }
+            //    };
+            //};
 
             return builder
                 .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(IdentityByStringGrain).Assembly).WithReferences());

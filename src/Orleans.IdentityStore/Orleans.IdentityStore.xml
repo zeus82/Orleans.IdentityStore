@@ -68,6 +68,31 @@
             <param name="factory">Grain factory</param>
             <param name="id">User Id</param>
         </member>
+        <member name="T:Orleans.IdentityStore.Grains.IIdentityRoleByNameGrain">
+            <summary>
+            Get role ID by normalized role name
+            </summary>
+        </member>
+        <member name="T:Orleans.IdentityStore.Grains.IIdentityUserByEmailGrain">
+            <summary>
+            Gets userId by normalized email
+            </summary>
+        </member>
+        <member name="T:Orleans.IdentityStore.Grains.IIdentityUserByLoginGrain">
+            <summary>
+            Gets userId by login
+            </summary>
+        </member>
+        <member name="T:Orleans.IdentityStore.Grains.IIdentityUserByNameGrain">
+            <summary>
+            Gets userId by normalized username
+            </summary>
+        </member>
+        <member name="T:Orleans.IdentityStore.Grains.IIdentityByStringGrain">
+            <summary>
+            Gets identity ID by string
+            </summary>
+        </member>
         <member name="M:Orleans.IdentityStore.Grains.IIdentityByStringGrain.ClearId">
             <summary>
             Clears the user ID associated with given string

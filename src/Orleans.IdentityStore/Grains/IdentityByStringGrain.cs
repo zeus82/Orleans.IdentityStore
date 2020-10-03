@@ -5,6 +5,9 @@ using System.Threading.Tasks;
 
 namespace Orleans.IdentityStore.Grains
 {
+    /// <summary>
+    /// Gets identity ID by string
+    /// </summary>
     public interface IIdentityByStringGrain : IGrainWithStringKey
     {
         /// <summary>
@@ -25,34 +28,18 @@ namespace Orleans.IdentityStore.Grains
         Task SetId(Guid id);
     }
 
-    public interface IIdentityRoleByNameGrain : IIdentityByStringGrain
-    {
-    }
-
-    public interface IIdentityUserByEmailGrain : IIdentityByStringGrain
-    {
-    }
-
-    public interface IIdentityUserByLoginGrain : IIdentityByStringGrain
-    {
-    }
-
-    public interface IIdentityUserByNameGrain : IIdentityByStringGrain
-    {
-    }
-
     internal class IdentityByStingState
     {
         public Guid? Id { get; set; }
     }
 
-    internal class IdentityByStringGrain : Grain, IIdentityRoleByNameGrain, IIdentityUserByEmailGrain, IIdentityUserByLoginGrain, IIdentityUserByNameGrain
+    internal abstract class IdentityByStringGrain : Grain
 
     {
         private readonly IPersistentState<IdentityByStingState> _data;
 
-        public IdentityByStringGrain(
-            [PersistentState("IdentityByString", OrleansIdentityConstants.OrleansStorageProvider)] IPersistentState<IdentityByStingState> data)
+        protected IdentityByStringGrain(
+            IPersistentState<IdentityByStingState> data)
         {
             _data = data;
         }

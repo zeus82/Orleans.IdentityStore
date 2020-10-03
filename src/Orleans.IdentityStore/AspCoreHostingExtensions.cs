@@ -1,9 +1,7 @@
 ﻿using Microsoft.AspNetCore.Identity;
-using Newtonsoft.Json;
 using Orleans.IdentityStore.Stores;
 using Orleans.IdentityStore.Tools;
 using System;
-using System.Collections.Generic;
 
 namespace Microsoft.Extensions.DependencyInjection
 {
@@ -18,13 +16,13 @@ namespace Microsoft.Extensions.DependencyInjection
         /// <param name="builder">Identity builder</param>
         public static IdentityBuilder AddOrleansStores(this IdentityBuilder builder)
         {
-            JsonConvert.DefaultSettings = () =>
-            {
-                return new JsonSerializerSettings()
-                {
-                    Converters = new List<JsonConverter>() { new JsonClaimConverter(), new JsonClaimsPrincipalConverter(), new JsonClaimsIdentityConverter() }
-                };
-            };
+            //JsonConvert.DefaultSettings = () =>
+            //{
+            //    return new JsonSerializerSettings()
+            //    {
+            //        Converters = new List<JsonConverter>() { new JsonClaimConverter(), new JsonClaimsPrincipalConverter(), new JsonClaimsIdentityConverter() }
+            //    };
+            //};
 
             var roleType = builder.RoleType ?? typeof(IdentityRole<Guid>);
 
