@@ -9,44 +9,45 @@ using System.Threading.Tasks;
 
 namespace Orleans.IdentityStore.Stores
 {
-    public class OrleansUserStore<TUser, TRole, TUserClaim, TUserRole, TUserLogin, TUserToken, TRoleClaim> :
-        StoreBase,
-        IUserClaimStore<TUser>,
-        IUserLoginStore<TUser>,
-        IUserRoleStore<TUser>,
-        IUserPasswordStore<TUser>,
-        IUserSecurityStampStore<TUser>,
-        IUserTwoFactorStore<TUser>,
-        IUserPhoneNumberStore<TUser>,
-        IUserEmailStore<TUser>,
-        IUserAuthenticatorKeyStore<TUser>,
-        IUserTwoFactorRecoveryCodeStore<TUser>,
-        IUserLockoutStore<TUser>
+    public class OrleansUserStore<TUser, TRole, TUserClaim, TUserLogin, TUserToken, TRoleClaim> :
+        UserStoreBase<TUser, TRole, Guid, TUserClaim, IdentityUserRole<Guid>, TUserLogin, TUserToken, TRoleClaim>
         where TUser : IdentityUser<Guid>
         where TRole : IdentityRole<Guid>
         where TUserClaim : IdentityUserClaim<Guid>, new()
         where TUserLogin : IdentityUserLogin<Guid>, new()
         where TUserToken : IdentityUserToken<Guid>, new()
-        where TUserRole : IdentityUserRole<Guid>, new()
         where TRoleClaim : IdentityRoleClaim<Guid>, new()
     {
-        private IRoleStore<TRole> _roleStore;
+        private const string ValueCannotBeNullOrEmpty = "Value cannot be null or empty";
+        private readonly IClusterClient _client;
+        private readonly IRoleClaimStore<TRole> _roleStore;
 
-        public OrleansUserStore(IClusterClient client, IRoleStore<TRole> roleStore) : base(client)
+        public OrleansUserStore(IClusterClient client, IRoleClaimStore<TRole> roleStore, IdentityErrorDescriber describer = null) : base(describer)
         {
+            _client = client;
             _roleStore = roleStore;
         }
 
-        public Task AddClaimsAsync(TUser user, IEnumerable<Claim> claims, CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            ThrowIfDisposed();
+        public override IQueryable<TUser> Users => throw new NotSupportedException();
 
+        /// <summary>
+        /// Adds the <paramref name="claims"/> given to the specified <paramref name="user"/>.
+        /// </summary>
+        /// <param name="user">The user to add the claim to.</param>
+        /// <param name="claims">The claim to add to the user.</param>
+        /// <param name="cancellationToken">
+        /// The <see cref="CancellationToken"/> used to propagate notifications that the operation
+        /// should be canceled.
+        /// </param>
+        /// <returns>The <see cref="Task"/> that represents the asynchronous operation.</returns>
+        public override Task AddClaimsAsync(TUser user, IEnumerable<Claim> claims, CancellationToken cancellationToken = default)
+        {
+            ThrowIfDisposed();
+            cancellationToken.ThrowIfCancellationRequested();
             if (user == null)
             {
                 throw new ArgumentNullException(nameof(user));
             }
-
             if (claims == null)
             {
                 throw new ArgumentNullException(nameof(claims));
@@ -54,846 +55,545 @@ namespace Orleans.IdentityStore.Stores
 
             if (claims.Any())
             {
-                return Cluster.GetGrain<IIdentityUserGrain<TUser, TRole, TUserClaim, TUserLogin, TUserToken, TRoleClaim>>(user.Id)
-                    .AddClaims(claims.ToList());
+                return UserGrain(user.Id).AddClaims(claims.Select(c => CreateUserClaim(user, c)).ToList());
             }
 
             return Task.CompletedTask;
         }
 
-        public Task AddLoginAsync(TUser user, UserLoginInfo login, CancellationToken cancellationToken)
+        /// <summary>
+        /// Adds the <paramref name="login"/> given to the specified <paramref name="user"/>.
+        /// </summary>
+        /// <param name="user">The user to add the login to.</param>
+        /// <param name="login">The login to add to the user.</param>
+        /// <param name="cancellationToken">
+        /// The <see cref="CancellationToken"/> used to propagate notifications that the operation
+        /// should be canceled.
+        /// </param>
+        /// <returns>The <see cref="Task"/> that represents the asynchronous operation.</returns>
+        public override Task AddLoginAsync(TUser user, UserLoginInfo login, CancellationToken cancellationToken = default)
         {
-            cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
-
+            cancellationToken.ThrowIfCancellationRequested();
             if (user == null)
             {
                 throw new ArgumentNullException(nameof(user));
             }
-
             if (login == null)
             {
                 throw new ArgumentNullException(nameof(login));
             }
 
-            user.Logins.Add(login);
-
-            return Task.CompletedTask;
+            return UserGrain(user.Id).AddLogin(CreateUserLogin(user, login));
         }
 
-        public async Task AddToRoleAsync(TUser user, string normalizedRoleName, CancellationToken cancellationToken)
+        /// <summary>
+        /// Adds the given <paramref name="normalizedRoleName"/> to the specified <paramref name="user"/>.
+        /// </summary>
+        /// <param name="user">The user to add the role to.</param>
+        /// <param name="normalizedRoleName">The role to add.</param>
+        /// <param name="cancellationToken">
+        /// The <see cref="CancellationToken"/> used to propagate notifications that the operation
+        /// should be canceled.
+        /// </param>
+        /// <returns>The <see cref="Task"/> that represents the asynchronous operation.</returns>
+        public override async Task AddToRoleAsync(TUser user, string normalizedRoleName, CancellationToken cancellationToken = default)
         {
-            cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
+            cancellationToken.ThrowIfCancellationRequested();
+            if (user == null)
+            {
+                throw new ArgumentNullException(nameof(user));
+            }
+            if (string.IsNullOrWhiteSpace(normalizedRoleName))
+            {
+                throw new ArgumentException(ValueCannotBeNullOrEmpty, nameof(normalizedRoleName));
+            }
 
+            var role = await FindRoleAsync(normalizedRoleName, cancellationToken);
+            if (role != null)
+            {
+                await UserGrain(user.Id).AddToRole(role.Id);
+            }
+        }
+
+        /// <summary>
+        /// Creates the specified <paramref name="user"/> in the user store.
+        /// </summary>
+        /// <param name="user">The user to create.</param>
+        /// <param name="cancellationToken">
+        /// The <see cref="CancellationToken"/> used to propagate notifications that the operation
+        /// should be canceled.
+        /// </param>
+        /// <returns>
+        /// The <see cref="Task"/> that represents the asynchronous operation, containing the <see
+        /// cref="IdentityResult"/> of the creation operation.
+        /// </returns>
+        public override Task<IdentityResult> CreateAsync(TUser user, CancellationToken cancellationToken = default)
+        {
+            ThrowIfDisposed();
+            cancellationToken.ThrowIfCancellationRequested();
             if (user == null)
             {
                 throw new ArgumentNullException(nameof(user));
             }
 
-            if (normalizedRoleName == null)
-            {
-                throw new ArgumentNullException(nameof(normalizedRoleName));
-            }
-
-            // Check if the given role name exists
-            TRole foundRole = await _roleStore.FindByNameAsync(normalizedRoleName, cancellationToken);
-
-            if (foundRole == null)
-            {
-                throw new ArgumentException(nameof(normalizedRoleName), $"The role with the given name {normalizedRoleName} does not exist");
-            }
-
-            user.Roles.Add(foundRole);
-        }
-
-        public Task<int> CountCodesAsync(TUser user, CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            ThrowIfDisposed();
-
-            if (user == null)
-            {
-                throw new ArgumentNullException(nameof(user));
-            }
-
-            var recoveryCodesCount = user.RecoveryCodes?.Count();
-            return Task.FromResult(recoveryCodesCount ?? 0);
-        }
-
-        public Task<IdentityResult> CreateAsync(TUser user, CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            ThrowIfDisposed();
-
-            if (user == null)
-            {
-                throw new ArgumentNullException(nameof(user));
-            }
-
-            // If no UserId was supplied, generate a GUID
             if (user.Id == default)
             {
                 user.Id = Guid.NewGuid();
             }
 
-            return Cluster.GetGrain<IIdentityUserGrain<TUser, TRole>>(user.Id).Create(user);
+            return UserGrain(user.Id).Create(user);
         }
 
-        public Task<IdentityResult> DeleteAsync(TUser user, CancellationToken cancellationToken)
+        /// <summary>
+        /// Deletes the specified <paramref name="user"/> from the user store.
+        /// </summary>
+        /// <param name="user">The user to delete.</param>
+        /// <param name="cancellationToken">
+        /// The <see cref="CancellationToken"/> used to propagate notifications that the operation
+        /// should be canceled.
+        /// </param>
+        /// <returns>
+        /// The <see cref="Task"/> that represents the asynchronous operation, containing the <see
+        /// cref="IdentityResult"/> of the update operation.
+        /// </returns>
+        public override Task<IdentityResult> DeleteAsync(TUser user, CancellationToken cancellationToken = default)
         {
-            cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
-
+            cancellationToken.ThrowIfCancellationRequested();
             if (user == null)
             {
                 throw new ArgumentNullException(nameof(user));
             }
 
-            return Cluster.GetGrain<IIdentityUserGrain<TUser, TRole>>(user.Id).Delete();
+            return UserGrain(user.Id).Delete();
         }
 
-        public Task<TUser> FindByEmailAsync(string normalizedEmail, CancellationToken cancellationToken)
+        /// <summary>
+        /// Gets the user, if any, associated with the specified, normalized email address.
+        /// </summary>
+        /// <param name="normalizedEmail">The normalized email address to return the user for.</param>
+        /// <param name="cancellationToken">
+        /// The <see cref="CancellationToken"/> used to propagate notifications that the operation
+        /// should be canceled.
+        /// </param>
+        /// <returns>
+        /// The task object containing the results of the asynchronous lookup operation, the user if
+        /// any associated with the specified normalized email address.
+        /// </returns>
+        public override async Task<TUser> FindByEmailAsync(string normalizedEmail, CancellationToken cancellationToken = default)
         {
-            cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
+            cancellationToken.ThrowIfCancellationRequested();
 
-            if (normalizedEmail == null)
-            {
-                throw new ArgumentNullException(nameof(normalizedEmail));
-            }
+            var id = await _client.GetGrain<IIdentityUserByEmailGrain>(normalizedEmail).GetId();
+            if (id != null)
+                return await UserGrain(id.Value).Get();
 
-            return Cluster.GetGrain<IIdentityUserByEmailGrain<TUser, TRole>>(normalizedEmail).Get();
+            return null;
         }
 
-        public Task<TUser> FindByIdAsync(string userId, CancellationToken cancellationToken)
+        /// <summary>
+        /// Finds and returns a user, if any, who has the specified <paramref name="userId"/>.
+        /// </summary>
+        /// <param name="userId">The user ID to search for.</param>
+        /// <param name="cancellationToken">
+        /// The <see cref="CancellationToken"/> used to propagate notifications that the operation
+        /// should be canceled.
+        /// </param>
+        /// <returns>
+        /// The <see cref="Task"/> that represents the asynchronous operation, containing the user
+        /// matching the specified <paramref name="userId"/> if it exists.
+        /// </returns>
+        public override Task<TUser> FindByIdAsync(string userId, CancellationToken cancellationToken = default)
         {
-            cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
+            cancellationToken.ThrowIfCancellationRequested();
 
-            if (userId == null)
-            {
-                throw new ArgumentNullException(nameof(userId));
-            }
-
-            return Cluster.GetGrain<IIdentityUserGrain<TUser, TRole>>(Guid.Parse(userId)).Get();
+            return UserGrain(ConvertIdFromString(userId)).Get();
         }
 
-        public Task<TUser> FindByLoginAsync(string loginProvider, string providerKey, CancellationToken cancellationToken)
+        /// <summary>
+        /// Finds and returns a user, if any, who has the specified normalized user name.
+        /// </summary>
+        /// <param name="normalizedUserName">The normalized user name to search for.</param>
+        /// <param name="cancellationToken">
+        /// The <see cref="CancellationToken"/> used to propagate notifications that the operation
+        /// should be canceled.
+        /// </param>
+        /// <returns>
+        /// The <see cref="Task"/> that represents the asynchronous operation, containing the user
+        /// matching the specified <paramref name="normalizedUserName"/> if it exists.
+        /// </returns>
+        public override async Task<TUser> FindByNameAsync(string normalizedUserName, CancellationToken cancellationToken = default)
         {
-            cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
+            cancellationToken.ThrowIfCancellationRequested();
 
-            if (loginProvider == null)
-            {
-                throw new ArgumentNullException(nameof(loginProvider));
-            }
+            var id = await _client.GetGrain<IIdentityUserByNameGrain>(normalizedUserName).GetId();
+            if (id != null)
+                return await UserGrain(id.Value).Get();
 
-            if (loginProvider == null)
-            {
-                throw new ArgumentNullException(nameof(loginProvider));
-            }
-
-            return Cluster.GetGrain<IIdentityUserByLoginGrain<TUser, TRole>>(loginProvider + providerKey).Get();
+            return null;
         }
 
-        public Task<TUser> FindByNameAsync(string normalizedUserName, CancellationToken cancellationToken)
+        /// <summary>
+        /// Get the claims associated with the specified <paramref name="user"/> as an asynchronous operation.
+        /// </summary>
+        /// <param name="user">The user whose claims should be retrieved.</param>
+        /// <param name="cancellationToken">
+        /// The <see cref="CancellationToken"/> used to propagate notifications that the operation
+        /// should be canceled.
+        /// </param>
+        /// <returns>A <see cref="Task{TResult}"/> that contains the claims granted to a user.</returns>
+        public override async Task<IList<Claim>> GetClaimsAsync(TUser user, CancellationToken cancellationToken = default)
         {
-            cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
-
-            if (normalizedUserName == null)
-            {
-                throw new ArgumentNullException(nameof(normalizedUserName));
-            }
-
-            return Cluster.GetGrain<IIdentityUserByNameGrain<TUser, TRole>>(normalizedUserName).Get();
-        }
-
-        public Task<int> GetAccessFailedCountAsync(TUser user, CancellationToken cancellationToken)
-        {
             cancellationToken.ThrowIfCancellationRequested();
-            ThrowIfDisposed();
-
             if (user == null)
             {
                 throw new ArgumentNullException(nameof(user));
             }
 
-            return Task.FromResult(user.AccessFailedCount);
+            return (await UserGrain(user.Id).GetClaims())?
+                .Select(c => c.ToClaim())
+                .ToList() ?? new List<Claim>();
         }
 
-        public Task<string> GetAuthenticatorKeyAsync(TUser user, CancellationToken cancellationToken)
+        /// <summary>
+        /// Retrieves the associated logins for the specified <param ref="user"/>.
+        /// </summary>
+        /// <param name="user">The user whose associated logins to retrieve.</param>
+        /// <param name="cancellationToken">
+        /// The <see cref="CancellationToken"/> used to propagate notifications that the operation
+        /// should be canceled.
+        /// </param>
+        /// <returns>
+        /// The <see cref="Task"/> for the asynchronous operation, containing a list of <see
+        /// cref="UserLoginInfo"/> for the specified <paramref name="user"/>, if any.
+        /// </returns>
+        public override async Task<IList<UserLoginInfo>> GetLoginsAsync(TUser user, CancellationToken cancellationToken = default)
         {
-            cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
-
+            cancellationToken.ThrowIfCancellationRequested();
             if (user == null)
             {
                 throw new ArgumentNullException(nameof(user));
             }
 
-            return Task.FromResult(user.AuthenticatorKey);
+            return (await UserGrain(user.Id).GetLogins())?
+                .Select(l => new UserLoginInfo(l.LoginProvider, l.ProviderKey, l.ProviderDisplayName))
+                .ToList() ?? new List<UserLoginInfo>();
         }
 
-        public Task<IList<Claim>> GetClaimsAsync(TUser user, CancellationToken cancellationToken)
+        /// <summary>
+        /// Retrieves the roles the specified <paramref name="user"/> is a member of.
+        /// </summary>
+        /// <param name="user">The user whose roles should be retrieved.</param>
+        /// <param name="cancellationToken">
+        /// The <see cref="CancellationToken"/> used to propagate notifications that the operation
+        /// should be canceled.
+        /// </param>
+        /// <returns>
+        /// A <see cref="Task{TResult}"/> that contains the roles the user is a member of.
+        /// </returns>
+        public override async Task<IList<string>> GetRolesAsync(TUser user, CancellationToken cancellationToken = default)
         {
-            cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
-
+            cancellationToken.ThrowIfCancellationRequested();
             if (user == null)
             {
                 throw new ArgumentNullException(nameof(user));
             }
 
-            return Task.FromResult(user.Claims);
+            return (await UserGrain(user.Id).GetRoles())?.ToList() ?? new List<string>();
         }
 
-        public Task<string> GetEmailAsync(TUser user, CancellationToken cancellationToken)
+        /// <summary>
+        /// Retrieves all users with the specified claim.
+        /// </summary>
+        /// <param name="claim">The claim whose users should be retrieved.</param>
+        /// <param name="cancellationToken">
+        /// The <see cref="CancellationToken"/> used to propagate notifications that the operation
+        /// should be canceled.
+        /// </param>
+        /// <returns>
+        /// The <see cref="Task"/> contains a list of users, if any, that contain the specified claim.
+        /// </returns>
+        public override async Task<IList<TUser>> GetUsersForClaimAsync(Claim claim, CancellationToken cancellationToken = default)
         {
-            cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
+            cancellationToken.ThrowIfCancellationRequested();
 
-            if (user == null)
-            {
-                throw new ArgumentNullException(nameof(user));
-            }
+            var ids = await _client.GetGrain<IIdentityClaimGrain>(claim.GetGrainKey()).GetUserIds();
 
-            return Task.FromResult(user.Email);
+            return (await Task.WhenAll(ids.Select(i => UserGrain(i).Get()))).ToList();
         }
 
-        public Task<bool> GetEmailConfirmedAsync(TUser user, CancellationToken cancellationToken)
+        /// <summary>
+        /// Retrieves all users in the specified role.
+        /// </summary>
+        /// <param name="normalizedRoleName">The role whose users should be retrieved.</param>
+        /// <param name="cancellationToken">
+        /// The <see cref="CancellationToken"/> used to propagate notifications that the operation
+        /// should be canceled.
+        /// </param>
+        /// <returns>
+        /// The <see cref="Task"/> contains a list of users, if any, that are in the specified role.
+        /// </returns>
+        public override async Task<IList<TUser>> GetUsersInRoleAsync(string normalizedRoleName, CancellationToken cancellationToken = default)
         {
-            cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
-
-            if (user == null)
-            {
-                throw new ArgumentNullException(nameof(user));
-            }
-
-            return Task.FromResult(user.IsEmailConfirmed);
-        }
-
-        public Task<bool> GetLockoutEnabledAsync(TUser user, CancellationToken cancellationToken)
-        {
             cancellationToken.ThrowIfCancellationRequested();
-            ThrowIfDisposed();
 
-            if (user == null)
-            {
-                throw new ArgumentNullException(nameof(user));
-            }
-
-            return Task.FromResult(user.LockoutEnabled);
-        }
-
-        public Task<DateTimeOffset?> GetLockoutEndDateAsync(TUser user, CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            ThrowIfDisposed();
-
-            if (user == null)
-            {
-                throw new ArgumentNullException(nameof(user));
-            }
-
-            return Task.FromResult(user.LockoutEndDate);
-        }
-
-        public Task<IList<UserLoginInfo>> GetLoginsAsync(TUser user, CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            ThrowIfDisposed();
-
-            if (user == null)
-            {
-                throw new ArgumentNullException(nameof(user));
-            }
-
-            return Task.FromResult(user.Logins);
-        }
-
-        public Task<string> GetNormalizedEmailAsync(TUser user, CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            ThrowIfDisposed();
-
-            if (user == null)
-            {
-                throw new ArgumentNullException(nameof(user));
-            }
-
-            return Task.FromResult(user.NormalizedEmail);
-        }
-
-        public Task<string> GetNormalizedUserNameAsync(TUser user, CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            ThrowIfDisposed();
-
-            if (user == null)
-            {
-                throw new ArgumentNullException(nameof(user));
-            }
-
-            return Task.FromResult(user.NormalizedUserName);
-        }
-
-        public Task<string> GetPasswordHashAsync(TUser user, CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            ThrowIfDisposed();
-
-            if (user == null)
-            {
-                throw new ArgumentNullException(nameof(user));
-            }
-
-            return Task.FromResult(user.PasswordHash);
-        }
-
-        public Task<string> GetPhoneNumberAsync(TUser user, CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            ThrowIfDisposed();
-
-            if (user == null)
-            {
-                throw new ArgumentNullException(nameof(user));
-            }
-
-            return Task.FromResult(user.PhoneNumber);
-        }
-
-        public Task<bool> GetPhoneNumberConfirmedAsync(TUser user, CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            ThrowIfDisposed();
-
-            if (user == null)
-            {
-                throw new ArgumentNullException(nameof(user));
-            }
-
-            return Task.FromResult(user.IsPhoneNumberConfirmed);
-        }
-
-        public Task<IList<string>> GetRolesAsync(TUser user, CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            ThrowIfDisposed();
-
-            if (user == null)
-            {
-                throw new ArgumentNullException(nameof(user));
-            }
-
-            IList<string> userRoles = user.Roles.Select(r => r.Name).ToList();
-
-            return Task.FromResult(userRoles);
-        }
-
-        public Task<string> GetSecurityStampAsync(TUser user, CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            ThrowIfDisposed();
-
-            if (user == null)
-            {
-                throw new ArgumentNullException(nameof(user));
-            }
-
-            return Task.FromResult(user.SecurityStamp);
-        }
-
-        public Task<bool> GetTwoFactorEnabledAsync(TUser user, CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            ThrowIfDisposed();
-
-            if (user == null)
-            {
-                throw new ArgumentNullException(nameof(user));
-            }
-
-            return Task.FromResult(user.IsTwoFactorAuthEnabled);
-        }
-
-        public Task<string> GetUserIdAsync(TUser user, CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            ThrowIfDisposed();
-
-            if (user == null)
-            {
-                throw new ArgumentNullException(nameof(user));
-            }
-
-            return Task.FromResult(user.Id.ToString());
-        }
-
-        public Task<string> GetUserNameAsync(TUser user, CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            ThrowIfDisposed();
-
-            if (user == null)
-            {
-                throw new ArgumentNullException(nameof(user));
-            }
-
-            return Task.FromResult(user.UserName);
-        }
-
-        public async Task<IList<TUser>> GetUsersForClaimAsync(Claim claim, CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            ThrowIfDisposed();
-
-            if (claim == null)
-            {
-                throw new ArgumentNullException(nameof(claim));
-            }
-
-            var userIds = await Cluster.GetGrain<IIdentityClaimGrain>(claim.GetGrainKey()).GetUserIds();
-
-            return (await Task.WhenAll(userIds.Select(u => Cluster.GetGrain<IIdentityUserGrain<TUser, TRole>>(u).Get()))).ToList();
-        }
-
-        public async Task<IList<TUser>> GetUsersInRoleAsync(string normalizedRoleName, CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            ThrowIfDisposed();
-
-            if (normalizedRoleName == null)
+            if (string.IsNullOrEmpty(normalizedRoleName))
             {
                 throw new ArgumentNullException(nameof(normalizedRoleName));
             }
 
-            var role = await _roleStore.FindByNameAsync(normalizedRoleName, cancellationToken);
+            var role = await FindRoleAsync(normalizedRoleName, cancellationToken);
+            var users = await _client.GetGrain<IIdentityRoleGrain<TRole>>(role.Id).GetUsers();
 
+            return (await Task.WhenAll(users.Select(u => UserGrain(u).Get()))).ToList();
+        }
+
+        /// <summary>
+        /// Returns a flag indicating if the specified user is a member of the give <paramref name="normalizedRoleName"/>.
+        /// </summary>
+        /// <param name="user">The user whose role membership should be checked.</param>
+        /// <param name="normalizedRoleName">The role to check membership of</param>
+        /// <param name="cancellationToken">
+        /// The <see cref="CancellationToken"/> used to propagate notifications that the operation
+        /// should be canceled.
+        /// </param>
+        /// <returns>
+        /// A <see cref="Task{TResult}"/> containing a flag indicating if the specified user is a
+        /// member of the given group. If the user is a member of the group the returned value with
+        /// be true, otherwise it will be false.
+        /// </returns>
+        public override async Task<bool> IsInRoleAsync(TUser user, string normalizedRoleName, CancellationToken cancellationToken = default)
+        {
+            ThrowIfDisposed();
+            cancellationToken.ThrowIfCancellationRequested();
+            if (user == null)
+            {
+                throw new ArgumentNullException(nameof(user));
+            }
+            if (string.IsNullOrWhiteSpace(normalizedRoleName))
+            {
+                throw new ArgumentException(ValueCannotBeNullOrEmpty, nameof(normalizedRoleName));
+            }
+            var role = await FindRoleAsync(normalizedRoleName, cancellationToken);
             if (role != null)
             {
-                var userIds = await Cluster.GetGrain<IIdentityRoleGrain<TRole>>(role.Id).GetUsers();
-                return (await Task.WhenAll(userIds.Select(i => Cluster.GetGrain<IIdentityUserGrain<TUser, TRole>>(i).Get()))).ToList();
+                return await UserGrain(user.Id).ContainsRole(role.Id);
             }
 
-            return new List<TUser>();
-        }
-
-        public Task<bool> HasPasswordAsync(TUser user, CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            ThrowIfDisposed();
-
-            if (user == null)
-            {
-                throw new ArgumentNullException(nameof(user));
-            }
-
-            return Task.FromResult(user.PasswordHash != null);
-        }
-
-        public Task<int> IncrementAccessFailedCountAsync(TUser user, CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            ThrowIfDisposed();
-
-            if (user == null)
-            {
-                throw new ArgumentNullException(nameof(user));
-            }
-
-            user.AccessFailedCount++;
-
-            return Task.FromResult(user.AccessFailedCount);
-        }
-
-        public Task<bool> IsInRoleAsync(TUser user, string normalizedRoleName, CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            ThrowIfDisposed();
-
-            if (user == null)
-            {
-                throw new ArgumentNullException(nameof(user));
-            }
-
-            if (normalizedRoleName == null)
-            {
-                throw new ArgumentNullException(nameof(normalizedRoleName));
-            }
-
-            bool isInRole = user.Roles.Any(r => r.NormalizedName.Equals(normalizedRoleName));
-
-            return Task.FromResult(isInRole);
-        }
-
-        public async Task<bool> RedeemCodeAsync(TUser user, string code, CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            ThrowIfDisposed();
-
-            if (user == null)
-            {
-                throw new ArgumentNullException(nameof(user));
-            }
-
-            if (user.RecoveryCodes.Contains(code))
-            {
-                var codes = user.RecoveryCodes.Where(x => x != code);
-                await ReplaceCodesAsync(user, codes, cancellationToken);
-                return true;
-            }
             return false;
         }
 
-        public Task RemoveClaimsAsync(TUser user, IEnumerable<Claim> claims, CancellationToken cancellationToken)
+        /// <summary>
+        /// Removes the <paramref name="claims"/> given from the specified <paramref name="user"/>.
+        /// </summary>
+        /// <param name="user">The user to remove the claims from.</param>
+        /// <param name="claims">The claim to remove.</param>
+        /// <param name="cancellationToken">
+        /// The <see cref="CancellationToken"/> used to propagate notifications that the operation
+        /// should be canceled.
+        /// </param>
+        /// <returns>The <see cref="Task"/> that represents the asynchronous operation.</returns>
+        public override Task RemoveClaimsAsync(TUser user, IEnumerable<Claim> claims, CancellationToken cancellationToken = default)
         {
-            cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
-
+            cancellationToken.ThrowIfCancellationRequested();
             if (user == null)
             {
                 throw new ArgumentNullException(nameof(user));
             }
-
             if (claims == null)
             {
                 throw new ArgumentNullException(nameof(claims));
             }
 
-            IEnumerable<Claim> foundClaims = user.Claims.Where(c => claims.Any(rc => rc.Type == c.Type && rc.Value == c.Value)).ToList();
-
-            foreach (Claim claimToRemove in foundClaims)
+            if (claims.Any())
             {
-                user.Claims.Remove(claimToRemove);
+                return UserGrain(user.Id).RemoveClaims(claims.ToList());
             }
 
             return Task.CompletedTask;
         }
 
-        public Task RemoveFromRoleAsync(TUser user, string normalizedRoleName, CancellationToken cancellationToken)
+        /// <summary>
+        /// Removes the given <paramref name="normalizedRoleName"/> from the specified <paramref name="user"/>.
+        /// </summary>
+        /// <param name="user">The user to remove the role from.</param>
+        /// <param name="normalizedRoleName">The role to remove.</param>
+        /// <param name="cancellationToken">
+        /// The <see cref="CancellationToken"/> used to propagate notifications that the operation
+        /// should be canceled.
+        /// </param>
+        /// <returns>The <see cref="Task"/> that represents the asynchronous operation.</returns>
+        public override async Task RemoveFromRoleAsync(TUser user, string normalizedRoleName, CancellationToken cancellationToken = default)
         {
-            cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
-
+            cancellationToken.ThrowIfCancellationRequested();
             if (user == null)
             {
                 throw new ArgumentNullException(nameof(user));
             }
-
-            if (normalizedRoleName == null)
+            if (string.IsNullOrWhiteSpace(normalizedRoleName))
             {
-                throw new ArgumentNullException(nameof(normalizedRoleName));
+                throw new ArgumentException(ValueCannotBeNullOrEmpty, nameof(normalizedRoleName));
             }
 
-            TRole roleToRemove = user.Roles.FirstOrDefault(r => r.NormalizedName == normalizedRoleName);
-
-            if (roleToRemove != null)
+            var role = await FindRoleAsync(normalizedRoleName, cancellationToken);
+            if (role != null)
             {
-                user.Roles.Remove(roleToRemove);
+                await UserGrain(user.Id).RemoveRole(role.Id);
             }
-
-            return Task.CompletedTask;
         }
 
-        public Task RemoveLoginAsync(TUser user, string loginProvider, string providerKey, CancellationToken cancellationToken)
+        /// <summary>
+        /// Removes the <paramref name="loginProvider"/> given from the specified <paramref name="user"/>.
+        /// </summary>
+        /// <param name="user">The user to remove the login from.</param>
+        /// <param name="loginProvider">The login to remove from the user.</param>
+        /// <param name="providerKey">
+        /// The key provided by the <paramref name="loginProvider"/> to identify a user.
+        /// </param>
+        /// <param name="cancellationToken">
+        /// The <see cref="CancellationToken"/> used to propagate notifications that the operation
+        /// should be canceled.
+        /// </param>
+        /// <returns>The <see cref="Task"/> that represents the asynchronous operation.</returns>
+        public override Task RemoveLoginAsync(TUser user, string loginProvider, string providerKey, CancellationToken cancellationToken = default)
         {
-            cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
-
+            cancellationToken.ThrowIfCancellationRequested();
             if (user == null)
             {
                 throw new ArgumentNullException(nameof(user));
             }
 
-            if (loginProvider == null)
-            {
-                throw new ArgumentNullException(nameof(loginProvider));
-            }
-
-            if (providerKey == null)
-            {
-                throw new ArgumentNullException(nameof(providerKey));
-            }
-
-            UserLoginInfo userLoginToRemove = user.Logins.FirstOrDefault(l => l.LoginProvider == loginProvider && l.ProviderKey == providerKey);
-
-            if (userLoginToRemove != null)
-            {
-                user.Logins.Remove(userLoginToRemove);
-            }
-
-            return Task.CompletedTask;
+            return UserGrain(user.Id).RemoveLogin(loginProvider, providerKey);
         }
 
-        public Task ReplaceClaimAsync(TUser user, Claim claim, Claim newClaim, CancellationToken cancellationToken)
+        /// <summary>
+        /// Replaces the <paramref name="claim"/> on the specified <paramref name="user"/>, with the
+        /// <paramref name="newClaim"/>.
+        /// </summary>
+        /// <param name="user">The user to replace the claim on.</param>
+        /// <param name="claim">The claim replace.</param>
+        /// <param name="newClaim">The new claim replacing the <paramref name="claim"/>.</param>
+        /// <param name="cancellationToken">
+        /// The <see cref="CancellationToken"/> used to propagate notifications that the operation
+        /// should be canceled.
+        /// </param>
+        /// <returns>The <see cref="Task"/> that represents the asynchronous operation.</returns>
+        public override Task ReplaceClaimAsync(TUser user, Claim claim, Claim newClaim, CancellationToken cancellationToken = default)
         {
-            cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
-
+            cancellationToken.ThrowIfCancellationRequested();
             if (user == null)
             {
                 throw new ArgumentNullException(nameof(user));
             }
-
             if (claim == null)
             {
                 throw new ArgumentNullException(nameof(claim));
             }
-
             if (newClaim == null)
             {
                 throw new ArgumentNullException(nameof(newClaim));
             }
 
-            if (user.Claims.Any(c => c.Equals(claim)))
-            {
-                user.Claims.Remove(claim);
-                user.Claims.Add(newClaim);
-            }
-
-            return Task.CompletedTask;
+            return UserGrain(user.Id).ReplaceClaims(claim, newClaim);
         }
 
-        public Task ReplaceCodesAsync(TUser user, IEnumerable<string> recoveryCodes, CancellationToken cancellationToken)
+        /// <summary>
+        /// Updates the specified <paramref name="user"/> in the user store.
+        /// </summary>
+        /// <param name="user">The user to update.</param>
+        /// <param name="cancellationToken">
+        /// The <see cref="CancellationToken"/> used to propagate notifications that the operation
+        /// should be canceled.
+        /// </param>
+        /// <returns>
+        /// The <see cref="Task"/> that represents the asynchronous operation, containing the <see
+        /// cref="IdentityResult"/> of the update operation.
+        /// </returns>
+        public override Task<IdentityResult> UpdateAsync(TUser user, CancellationToken cancellationToken = default)
         {
-            cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
-
+            cancellationToken.ThrowIfCancellationRequested();
             if (user == null)
             {
                 throw new ArgumentNullException(nameof(user));
             }
 
-            user.RecoveryCodes = recoveryCodes;
-
-            return Task.CompletedTask;
-        }
-
-        public Task ResetAccessFailedCountAsync(TUser user, CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            ThrowIfDisposed();
-
-            if (user == null)
+            if (user.Id == default)
             {
-                throw new ArgumentNullException(nameof(user));
+                throw new ArgumentException("Id cannot be default", nameof(user.Id));
             }
 
-            user.AccessFailedCount = 0;
-
-            return Task.CompletedTask;
+            return UserGrain(user.Id).Update(user);
         }
 
-        public Task SetAuthenticatorKeyAsync(TUser user, string key, CancellationToken cancellationToken)
+        protected override Task AddUserTokenAsync(TUserToken token)
         {
-            cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
-
-            if (user == null)
-            {
-                throw new ArgumentNullException(nameof(user));
-            }
-
-            user.AuthenticatorKey = key;
-
-            return Task.CompletedTask;
+            throw new NotImplementedException();
         }
 
-        public Task SetEmailAsync(TUser user, string email, CancellationToken cancellationToken)
+        protected override Task<TRole> FindRoleAsync(string normalizedRoleName, CancellationToken cancellationToken)
         {
-            cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
-
-            if (user == null)
-            {
-                throw new ArgumentNullException(nameof(user));
-            }
-
-            user.Email = email;
-
-            return Task.FromResult(user.Email);
+            cancellationToken.ThrowIfCancellationRequested();
+            return _roleStore.FindByNameAsync(normalizedRoleName, cancellationToken);
         }
 
-        public Task SetEmailConfirmedAsync(TUser user, bool confirmed, CancellationToken cancellationToken)
+        protected override Task<TUserToken> FindTokenAsync(TUser user, string loginProvider, string name, CancellationToken cancellationToken)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            ThrowIfDisposed();
-
-            if (user == null)
-            {
-                throw new ArgumentNullException(nameof(user));
-            }
-
-            user.IsEmailConfirmed = confirmed;
-
-            return Task.FromResult(user.Email);
+            return UserGrain(user.Id).GetToken(loginProvider, name);
         }
 
-        public Task SetLockoutEnabledAsync(TUser user, bool enabled, CancellationToken cancellationToken)
+        protected override Task<TUser> FindUserAsync(Guid userId, CancellationToken cancellationToken)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            ThrowIfDisposed();
-
-            if (user == null)
-            {
-                throw new ArgumentNullException(nameof(user));
-            }
-
-            user.LockoutEnabled = enabled;
-
-            return Task.CompletedTask;
+            return UserGrain(userId).Get();
         }
 
-        public Task SetLockoutEndDateAsync(TUser user, DateTimeOffset? lockoutEnd, CancellationToken cancellationToken)
+        protected override Task<TUserLogin> FindUserLoginAsync(string loginProvider, string providerKey, CancellationToken cancellationToken)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            ThrowIfDisposed();
-
-            if (user == null)
-            {
-                throw new ArgumentNullException(nameof(user));
-            }
-
-            user.LockoutEndDate = lockoutEnd;
-
-            return Task.CompletedTask;
+            throw new NotImplementedException();
         }
 
-        public Task SetNormalizedEmailAsync(TUser user, string normalizedEmail, CancellationToken cancellationToken)
+        protected override Task<TUserLogin> FindUserLoginAsync(Guid userId, string loginProvider, string providerKey, CancellationToken cancellationToken)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            ThrowIfDisposed();
-
-            if (user == null)
-            {
-                throw new ArgumentNullException(nameof(user));
-            }
-
-            user.NormalizedEmail = normalizedEmail;
-
-            return Task.FromResult(user.Email);
+            throw new NotImplementedException();
         }
 
-        public Task SetNormalizedUserNameAsync(TUser user, string normalizedName, CancellationToken cancellationToken)
+        protected override async Task<IdentityUserRole<Guid>> FindUserRoleAsync(Guid userId, Guid roleId, CancellationToken cancellationToken)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            ThrowIfDisposed();
-
-            if (user == null)
+            if (await UserGrain(userId).ContainsRole(roleId))
             {
-                throw new ArgumentNullException(nameof(user));
+                return new IdentityUserRole<Guid>
+                {
+                    RoleId = roleId,
+                    UserId = userId
+                };
             }
-
-            user.NormalizedUserName = normalizedName ?? throw new ArgumentNullException(nameof(normalizedName));
-
-            return Task.CompletedTask;
+            return null;
         }
 
-        public Task SetPasswordHashAsync(TUser user, string passwordHash, CancellationToken cancellationToken)
+        protected override Task RemoveUserTokenAsync(TUserToken token)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            ThrowIfDisposed();
-
-            if (user == null)
-            {
-                throw new ArgumentNullException(nameof(user));
-            }
-
-            user.PasswordHash = passwordHash ?? throw new ArgumentNullException(nameof(passwordHash));
-
-            return Task.CompletedTask;
+            throw new NotImplementedException();
         }
 
-        public Task SetPhoneNumberAsync(TUser user, string phoneNumber, CancellationToken cancellationToken)
+        private IIdentityUserGrain<TUser, TRole, TUserClaim, TUserLogin, TUserToken, TRoleClaim> UserGrain(Guid id)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            ThrowIfDisposed();
-
-            if (user == null)
-            {
-                throw new ArgumentNullException(nameof(user));
-            }
-
-            user.PhoneNumber = phoneNumber;
-
-            return Task.CompletedTask;
-        }
-
-        public Task SetPhoneNumberConfirmedAsync(TUser user, bool confirmed, CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            ThrowIfDisposed();
-
-            if (user == null)
-            {
-                throw new ArgumentNullException(nameof(user));
-            }
-
-            user.IsPhoneNumberConfirmed = confirmed;
-
-            return Task.CompletedTask;
-        }
-
-        public Task SetSecurityStampAsync(TUser user, string stamp, CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            ThrowIfDisposed();
-
-            if (user == null)
-            {
-                throw new ArgumentNullException(nameof(user));
-            }
-
-            user.SecurityStamp = stamp;
-
-            return Task.CompletedTask;
-        }
-
-        public Task SetTwoFactorEnabledAsync(TUser user, bool enabled, CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            ThrowIfDisposed();
-
-            if (user == null)
-            {
-                throw new ArgumentNullException(nameof(user));
-            }
-
-            user.IsTwoFactorAuthEnabled = enabled;
-
-            return Task.CompletedTask;
-        }
-
-        public Task SetUserNameAsync(TUser user, string userName, CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            ThrowIfDisposed();
-
-            if (user == null)
-            {
-                throw new ArgumentNullException(nameof(user));
-            }
-
-            user.UserName = userName ?? throw new ArgumentNullException(nameof(userName));
-
-            return Task.CompletedTask;
-        }
-
-        public Task<IdentityResult> UpdateAsync(TUser user, CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            ThrowIfDisposed();
-
-            if (user == null)
-            {
-                throw new ArgumentNullException(nameof(user));
-            }
-
-            return Cluster.GetGrain<IIdentityUserGrain<TUser, TRole>>(user.Id).Update(user);
+            return _client.GetGrain<IIdentityUserGrain<TUser, TRole, TUserClaim, TUserLogin, TUserToken, TRoleClaim>>(id);
         }
     }
 }

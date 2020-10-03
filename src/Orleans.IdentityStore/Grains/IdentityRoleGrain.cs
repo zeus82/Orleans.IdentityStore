@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging;
-using Orleans;
 using Orleans.Concurrency;
 using Orleans.Runtime;
 using System;
@@ -10,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace Orleans.IdentityStore.Grains
 {
-    public interface IIdentityRoleGrain<TRole> : IGrainWithGuidKey where TRole : OrleansIdentityRole
+    public interface IIdentityRoleGrain<TRole> : IGrainWithGuidKey where TRole : IdentityRole<Guid>
     {
         Task AddUser(Guid id);
 
@@ -28,7 +27,7 @@ namespace Orleans.IdentityStore.Grains
         Task<IdentityResult> Update(TRole role);
     }
 
-    internal class IdentityRoleGrain<TRole> : Grain, IIdentityRoleGrain<TRole> where TRole : OrleansIdentityRole
+    internal class IdentityRoleGrain<TRole> : Grain, IIdentityRoleGrain<TRole> where TRole : IdentityRole<Guid>
     {
         private readonly IPersistentState<RoleGrainState<TRole>> _data;
         private readonly ILogger<IdentityRoleGrain<TRole>> _logger;

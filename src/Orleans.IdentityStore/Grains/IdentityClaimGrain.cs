@@ -1,6 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
-using Orleans;
-using Orleans.Concurrency;
+﻿using Orleans.Concurrency;
 using Orleans.Runtime;
 using System;
 using System.Collections.Generic;
@@ -25,12 +23,10 @@ namespace Orleans.IdentityStore.Grains
     internal class IdentityClaimGrain : Grain, IIdentityClaimGrainInternal
     {
         private readonly IPersistentState<HashSet<Guid>> _data;
-        private readonly ILogger<IdentityClaimGrain> _logger;
 
-        public IdentityClaimGrain(ILogger<IdentityClaimGrain> logger,
+        public IdentityClaimGrain(
                     [PersistentState("IdentityClaim", OrleansIdentityConstants.OrleansStorageProvider)] IPersistentState<HashSet<Guid>> data)
         {
-            _logger = logger;
             _data = data;
         }
 

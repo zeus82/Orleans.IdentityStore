@@ -8,15 +8,10 @@ using System.Threading.Tasks;
 
 namespace Orleans.IdentityStore.Stores
 {
-    public class OrleansRoleStore : OrleansRoleStore<OrleansIdentityRole>
-    {
-        public OrleansRoleStore(IClusterClient cluster) : base(cluster)
-        {
-        }
-    }
-
-    public class OrleansRoleStore<TRole> : StoreBase, IRoleClaimStore<TRole>
-        where TRole : OrleansIdentityRole
+    public class OrleansRoleStore<TRole, TUserRole, TRoleClaim> : StoreBase, IRoleClaimStore<TRole>
+        where TRole : IdentityRole<Guid>
+        where TUserRole : IdentityUserRole<Guid>, new()
+        where TRoleClaim : IdentityRoleClaim<Guid>, new()
     {
         public OrleansRoleStore(IClusterClient cluster) : base(cluster)
 

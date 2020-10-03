@@ -10,14 +10,14 @@ namespace Orleans.IdentityStore.Grains
         Task ClearId();
 
         [AlwaysInterleave]
-        Task<Guid> GetId();
+        Task<Guid?> GetId();
 
         Task SetId(Guid id);
     }
 
     internal class IdentityByStingState
     {
-        public Guid Id { get; set; }
+        public Guid? Id { get; set; }
     }
 
     internal abstract class IdentityByStringGrain : Grain, IIdentityRoleByNameGrain, IIdentityUserByEmailGrain, IIdentityUserByLoginGrain, IIdentityUserByNameGrain
@@ -35,14 +35,14 @@ namespace Orleans.IdentityStore.Grains
             return _data.ClearStateAsync();
         }
 
-        public Task<Guid> GetId()
+        public Task<Guid?> GetId()
         {
             return Task.FromResult(_data.State.Id);
         }
 
         public Task SetId(Guid id)
         {
-            if (_data.State.Id != default)
+            if (_data.State.Id != null)
                 throw new ArgumentException("The ID already exists");
 
             _data.State.Id = id;
