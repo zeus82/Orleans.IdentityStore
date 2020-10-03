@@ -61,8 +61,19 @@ namespace Orleans.IdentityStore.Grains
         Task<IdentityResult> Update(TUser user);
     }
 
+    public class IdentityUserGrainState<TUser, TRole>
+        where TUser : IdentityUser<Guid>, new()
+        where TRole : IdentityRole<Guid>, new()
+    {
+        public List<IdentityUserClaim<Guid>> Claims { get; set; } = new List<IdentityUserClaim<Guid>>();
+        public List<IdentityUserLogin<Guid>> Logins { get; set; } = new List<IdentityUserLogin<Guid>>();
+        public HashSet<Guid> Roles { get; set; } = new HashSet<Guid>();
+        public List<IdentityUserToken<Guid>> Tokens { get; set; } = new List<IdentityUserToken<Guid>>();
+        public TUser User { get; set; }
+    }
+
     internal class IdentityUserGrain<TUser, TRole> :
-        Grain, IIdentityUserGrain<TUser, TRole>
+            Grain, IIdentityUserGrain<TUser, TRole>
         where TUser : IdentityUser<Guid>, new()
         where TRole : IdentityRole<Guid>, new()
     {
@@ -318,16 +329,5 @@ namespace Orleans.IdentityStore.Grains
 
             return IdentityResult.Success;
         }
-    }
-
-    internal class IdentityUserGrainState<TUser, TRole>
-        where TUser : IdentityUser<Guid>, new()
-        where TRole : IdentityRole<Guid>, new()
-    {
-        public List<IdentityUserClaim<Guid>> Claims { get; set; } = new List<IdentityUserClaim<Guid>>();
-        public List<IdentityUserLogin<Guid>> Logins { get; set; } = new List<IdentityUserLogin<Guid>>();
-        public HashSet<Guid> Roles { get; set; } = new HashSet<Guid>();
-        public List<IdentityUserToken<Guid>> Tokens { get; set; } = new List<IdentityUserToken<Guid>>();
-        public TUser User { get; set; }
     }
 }

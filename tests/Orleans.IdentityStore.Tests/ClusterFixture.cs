@@ -34,7 +34,9 @@ namespace Orleans.IdentityStore.Tests
         {
             public void Configure(ISiloBuilder siloBuilder)
             {
-                siloBuilder.UserOrleanIdentityStore();
+                siloBuilder
+                    .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(TestUser).Assembly).WithReferences())
+                    .UserOrleanIdentityStore();
             }
 
             public void Configure(IHostBuilder hostBuilder)

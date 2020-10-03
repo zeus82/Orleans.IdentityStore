@@ -2,6 +2,11 @@
 
 	<PropertyGroup>
 		<TargetFramework>netcoreapp3.1</TargetFramework>
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+		<Authors>Sanjeev Manickam</Authors>
+		<Description>Uses Orleans storage to store ASP Core user accounts</Description>
+		<PackageProjectUrl>https://github.com/zeus82/Orleans.IdentityStore</PackageProjectUrl>
+		<RepositoryUrl>https://github.com/zeus82/Orleans.IdentityStore.git</RepositoryUrl>
 	</PropertyGroup>
 	<ItemGroup>
 		<FrameworkReference Include="Microsoft.AspNetCore.App" />

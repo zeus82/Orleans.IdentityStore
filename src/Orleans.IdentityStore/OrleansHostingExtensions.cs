@@ -10,7 +10,7 @@ namespace Orleans.IdentityStore
 {
     public static class SiloBuilderExtensions
     {
-        public static ISiloBuilder UserOrleanIdentityStore(this ISiloBuilder builder)
+        public static ISiloBuilder UseOrleanIdentityStore(this ISiloBuilder builder)
         {
             builder.ConfigureServices(s => s.AddSingleton<ILookupNormalizer, LookupNormalizer>());
             try { builder.AddMemoryGrainStorage(OrleansIdentityConstants.OrleansStorageProvider); }
@@ -31,7 +31,7 @@ namespace Orleans.IdentityStore
 
     public static class SiloHostBuilderExtensions
     {
-        public static ISiloHostBuilder UserOrleanIdentityStore(this ISiloHostBuilder builder)
+        public static ISiloHostBuilder UseOrleanIdentityStore(this ISiloHostBuilder builder)
         {
             try { builder.AddMemoryGrainStorage(OrleansIdentityConstants.OrleansStorageProvider); }
             catch { /** Grain storage provider was already added. Do nothing. **/ }

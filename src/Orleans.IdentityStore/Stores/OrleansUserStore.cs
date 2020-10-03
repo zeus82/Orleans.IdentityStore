@@ -18,7 +18,7 @@ namespace Orleans.IdentityStore.Stores
         private readonly IClusterClient _client;
         private readonly IRoleClaimStore<TRole> _roleStore;
 
-        public OrleansUserStore(IClusterClient client, IRoleClaimStore<TRole> roleStore, IdentityErrorDescriber describer = null) : base(describer)
+        public OrleansUserStore(IClusterClient client, IRoleClaimStore<TRole> roleStore) : base(new IdentityErrorDescriber())
         {
             _client = client;
             _roleStore = roleStore;

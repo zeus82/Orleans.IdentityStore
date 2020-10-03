@@ -10,7 +10,9 @@ namespace Orleans.IdentityStore
 {
     public static class AspCoreHostingExtensions
     {
-        public static IdentityBuilder AddOrleansStores(this IdentityBuilder builder)
+        public static IdentityBuilder AddOrleansStores<TUser, TRole>(this IdentityBuilder builder)
+            where TUser : IdentityUser<Guid>
+            where TRole : IdentityRole<Guid>
         {
             JsonConvert.DefaultSettings = () =>
             {
@@ -23,7 +25,7 @@ namespace Orleans.IdentityStore
             var roleType = builder.RoleType ?? typeof(IdentityRole<Guid>);
 
             builder.Services.AddTransient(
-                    typeof(IRoleStore<>).MakeGenericType(roleType),
+                    typeof(IRoleClaimStore<>).MakeGenericType(roleType),
                     typeof(OrleansRoleStore<,>).MakeGenericType(builder.UserType, roleType));
 
             builder.Services.AddTransient(
@@ -31,6 +33,7 @@ namespace Orleans.IdentityStore
             typeof(OrleansUserStore<,>).MakeGenericType(builder.UserType, roleType));
 
             builder.Services.AddSingleton<ILookupNormalizer, LookupNormalizer>();
+            //builder.AddSignInManager();
 
             return builder;
         }
