@@ -2,6 +2,6 @@
 {
     public static class OrleansIdentityConstants
     {
-        public const string OrleansStorageProvider = "OrleansIdentity";
+        public const string OrleansStorageProvider = "OrleansIdentityStore";
     }
 }

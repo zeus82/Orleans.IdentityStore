@@ -8,11 +8,16 @@ using System.Collections.Generic;
 
 namespace Orleans.IdentityStore
 {
+    /// <summary>
+    /// Hosting extensions
+    /// </summary>
     public static class AspCoreHostingExtensions
     {
-        public static IdentityBuilder AddOrleansStores<TUser, TRole>(this IdentityBuilder builder)
-            where TUser : IdentityUser<Guid>
-            where TRole : IdentityRole<Guid>
+        /// <summary>
+        /// Use orleans as your user store
+        /// </summary>
+        /// <param name="builder">Identity builder</param>
+        public static IdentityBuilder AddOrleansStores(this IdentityBuilder builder)
         {
             JsonConvert.DefaultSettings = () =>
             {
@@ -33,8 +38,6 @@ namespace Orleans.IdentityStore
             typeof(OrleansUserStore<,>).MakeGenericType(builder.UserType, roleType));
 
             builder.Services.AddSingleton<ILookupNormalizer, LookupNormalizer>();
-            //builder.AddSignInManager();
-
             return builder;
         }
     }

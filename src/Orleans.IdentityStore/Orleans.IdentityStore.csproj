@@ -8,6 +8,10 @@
 		<PackageProjectUrl>https://github.com/zeus82/Orleans.IdentityStore</PackageProjectUrl>
 		<RepositoryUrl>https://github.com/zeus82/Orleans.IdentityStore.git</RepositoryUrl>
 	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+	  <DocumentationFile>C:\dev\github\Orleans.IdentityStore\src\Orleans.IdentityStore\Orleans.IdentityStore.xml</DocumentationFile>
+	</PropertyGroup>
 	<ItemGroup>
 		<FrameworkReference Include="Microsoft.AspNetCore.App" />
 		<PackageReference Include="Microsoft.Orleans.CodeGenerator.MSBuild" Version="3.3.0">

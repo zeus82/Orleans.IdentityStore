@@ -12,6 +12,10 @@ SiloBuilder:
 siloBuilder.UseOrleanIdentityStore() // Add identity store
 ```
 
+### Storage Provider
+
+The grain storage provider used is `OrleansIdentityStore`
+
 Asp Core Startup:
 
 ```

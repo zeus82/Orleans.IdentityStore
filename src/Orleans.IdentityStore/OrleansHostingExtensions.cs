@@ -8,8 +8,16 @@ using System.Collections.Generic;
 
 namespace Orleans.IdentityStore
 {
+    /// <summary>
+    /// Silo hosting extensions
+    /// </summary>
     public static class SiloBuilderExtensions
     {
+        /// <summary>
+        /// Add identity store to orleans. Grain storage provider name can be found at <see
+        /// cref="OrleansIdentityConstants.OrleansStorageProvider"/> ///
+        /// </summary>
+        /// <param name="builder">Silo builder</param>
         public static ISiloBuilder UseOrleanIdentityStore(this ISiloBuilder builder)
         {
             builder.ConfigureServices(s => s.AddSingleton<ILookupNormalizer, LookupNormalizer>());
@@ -27,10 +35,12 @@ namespace Orleans.IdentityStore
             return builder
                 .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(IdentityClaimGrain).Assembly).WithReferences());
         }
-    }
 
-    public static class SiloHostBuilderExtensions
-    {
+        /// <summary>
+        /// Add identity store to orleans. Grain storage provider name can be found at <see
+        /// cref="OrleansIdentityConstants.OrleansStorageProvider"/> ///
+        /// </summary>
+        /// <param name="builder">Silo builder</param>
         public static ISiloHostBuilder UseOrleanIdentityStore(this ISiloHostBuilder builder)
         {
             try { builder.AddMemoryGrainStorage(OrleansIdentityConstants.OrleansStorageProvider); }
