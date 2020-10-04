@@ -7,7 +7,7 @@ using System.Security.Claims;
 
 namespace Orleans.IdentityStore.Tools
 {
-    public class JsonClaimsPrincipalConverter : JsonConverter
+    internal class JsonClaimsPrincipalConverter : JsonConverter
     {
         public override bool CanConvert(Type objectType)
         {

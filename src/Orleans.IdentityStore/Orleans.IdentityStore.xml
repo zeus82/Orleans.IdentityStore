@@ -265,6 +265,11 @@
             asynchronous query.
             </returns>
         </member>
+        <member name="P:Orleans.IdentityStore.Stores.OrleansUserStore`2.Users">
+            <summary>
+            The store is not queryable
+            </summary>
+        </member>
         <member name="M:Orleans.IdentityStore.Stores.OrleansUserStore`2.AddClaimsAsync(`0,System.Collections.Generic.IEnumerable{System.Security.Claims.Claim},System.Threading.CancellationToken)">
             <summary>
             Adds the <paramref name="claims"/> given to the specified <paramref name="user"/>.

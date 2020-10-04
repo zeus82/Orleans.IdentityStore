@@ -61,17 +61,6 @@ namespace Orleans.IdentityStore.Grains
         Task<IdentityResult> Update(TUser user);
     }
 
-    public class IdentityUserGrainState<TUser, TRole>
-        where TUser : IdentityUser<Guid>, new()
-        where TRole : IdentityRole<Guid>, new()
-    {
-        public List<IdentityUserClaim<Guid>> Claims { get; set; } = new List<IdentityUserClaim<Guid>>();
-        public List<IdentityUserLogin<Guid>> Logins { get; set; } = new List<IdentityUserLogin<Guid>>();
-        public HashSet<Guid> Roles { get; set; } = new HashSet<Guid>();
-        public List<IdentityUserToken<Guid>> Tokens { get; set; } = new List<IdentityUserToken<Guid>>();
-        public TUser User { get; set; }
-    }
-
     internal class IdentityUserGrain<TUser, TRole> :
             Grain, IIdentityUserGrain<TUser, TRole>
         where TUser : IdentityUser<Guid>, new()
@@ -79,13 +68,16 @@ namespace Orleans.IdentityStore.Grains
     {
         private readonly IPersistentState<IdentityUserGrainState<TUser, TRole>> _data;
 
+        private readonly ILookupNormalizer _normalizer;
         private Guid _id;
 
         public IdentityUserGrain(
-                    [PersistentState("IdentityUser", OrleansIdentityConstants.OrleansStorageProvider)]
+            ILookupNormalizer normalizer,
+            [PersistentState("IdentityUser", OrleansIdentityConstants.OrleansStorageProvider)]
         IPersistentState<IdentityUserGrainState<TUser, TRole>> data)
         {
             _data = data;
+            _normalizer = normalizer;
         }
 
         private bool Exists => _data.State?.User != null;
@@ -133,7 +125,9 @@ namespace Orleans.IdentityStore.Grains
         {
             if (Exists && _data.State.Roles.Add(roleId))
             {
-                return _data.WriteStateAsync();
+                return Task.WhenAll(
+                    GrainFactory.GetGrain<IIdentityRoleGrain<TUser, TRole>>(roleId).AddUser(_id),
+                    _data.WriteStateAsync());
             }
 
             return Task.CompletedTask;
@@ -146,8 +140,22 @@ namespace Orleans.IdentityStore.Grains
 
         public async Task<IdentityResult> Create(TUser user)
         {
-            if (Exists || string.IsNullOrEmpty(user.NormalizedEmail) || string.IsNullOrEmpty(user.NormalizedUserName))
+            if (Exists ||
+                string.IsNullOrEmpty(user.Email) ||
+                string.IsNullOrEmpty(user.UserName))
+            {
                 return IdentityResult.Failed();
+            }
+
+            // Make sure to set normalized username and email
+            user.NormalizedEmail = _normalizer.NormalizeEmail(user.Email);
+            user.NormalizedUserName = _normalizer.NormalizeName(user.UserName);
+
+            if ((await GrainFactory.GetGrain<IIdentityUserByEmailGrain>(user.NormalizedEmail).GetId()) != null ||
+                (await GrainFactory.GetGrain<IIdentityUserByNameGrain>(user.NormalizedUserName).GetId()) != null)
+            {
+                return IdentityResult.Failed();
+            }
 
             _data.State.User = user;
 
@@ -321,8 +329,12 @@ namespace Orleans.IdentityStore.Grains
 
         public async Task<IdentityResult> Update(TUser user)
         {
-            if (_data.State.User == null || user == null || string.IsNullOrEmpty(user.NormalizedEmail) || string.IsNullOrEmpty(user.NormalizedUserName))
+            if (_data.State.User == null || user == null || string.IsNullOrEmpty(user.Email) || string.IsNullOrEmpty(user.UserName))
                 return IdentityResult.Failed();
+
+            // Make sure to set normalized username and email
+            user.NormalizedEmail = _normalizer.NormalizeEmail(user.Email);
+            user.NormalizedUserName = _normalizer.NormalizeName(user.UserName);
 
             if (user.NormalizedEmail != _data.State.User.NormalizedEmail)
             {
@@ -333,7 +345,7 @@ namespace Orleans.IdentityStore.Grains
             if (user.NormalizedUserName != _data.State.User.NormalizedUserName)
             {
                 await GrainFactory.GetGrain<IIdentityUserByNameGrain>(_data.State.User.NormalizedUserName).ClearId();
-                await GrainFactory.GetGrain<IIdentityUserByEmailGrain>(user.NormalizedEmail).SetId(user.Id);
+                await GrainFactory.GetGrain<IIdentityUserByNameGrain>(user.NormalizedUserName).SetId(user.Id);
             }
 
             _data.State.User = user;
@@ -341,5 +353,16 @@ namespace Orleans.IdentityStore.Grains
 
             return IdentityResult.Success;
         }
+    }
+
+    internal class IdentityUserGrainState<TUser, TRole>
+            where TUser : IdentityUser<Guid>, new()
+        where TRole : IdentityRole<Guid>, new()
+    {
+        public List<IdentityUserClaim<Guid>> Claims { get; set; } = new List<IdentityUserClaim<Guid>>();
+        public List<IdentityUserLogin<Guid>> Logins { get; set; } = new List<IdentityUserLogin<Guid>>();
+        public HashSet<Guid> Roles { get; set; } = new HashSet<Guid>();
+        public List<IdentityUserToken<Guid>> Tokens { get; set; } = new List<IdentityUserToken<Guid>>();
+        public TUser User { get; set; }
     }
 }

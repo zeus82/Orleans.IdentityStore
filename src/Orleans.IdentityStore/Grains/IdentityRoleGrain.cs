@@ -42,12 +42,15 @@ namespace Orleans.IdentityStore.Grains
         where TRole : IdentityRole<Guid>
     {
         private readonly IPersistentState<RoleGrainState<TRole>> _data;
+        private readonly ILookupNormalizer _normalizer;
         private Guid _id;
 
         public IdentityRoleGrain(
+            ILookupNormalizer normalizer,
             [PersistentState("IdentityRole", OrleansIdentityConstants.OrleansStorageProvider)] IPersistentState<RoleGrainState<TRole>> data)
         {
             _data = data;
+            _normalizer = normalizer;
         }
 
         private bool Exists => _data.State?.Role != null;
@@ -73,7 +76,15 @@ namespace Orleans.IdentityStore.Grains
 
         public async Task<IdentityResult> Create(TRole role)
         {
-            if (Exists)
+            if (Exists || string.IsNullOrEmpty(role.Name))
+            {
+                return IdentityResult.Failed();
+            }
+
+            // Normalize name
+            role.NormalizedName = _normalizer.NormalizeName(role.Name);
+
+            if ((await GrainFactory.GetGrain<IIdentityRoleByNameGrain>(role.NormalizedName).GetId()) != null)
                 return IdentityResult.Failed();
 
             _data.State.Role = role;
@@ -149,7 +160,13 @@ namespace Orleans.IdentityStore.Grains
 
         public async Task<IdentityResult> Update(TRole role)
         {
-            if (_data.State.Role == null)
+            if (!Exists || string.IsNullOrEmpty(role.Name))
+                return IdentityResult.Failed();
+
+            // Normalize name
+            role.NormalizedName = _normalizer.NormalizeName(role.Name);
+
+            if ((await GrainFactory.GetGrain<IIdentityRoleByNameGrain>(role.NormalizedName).GetId()) != null)
                 return IdentityResult.Failed();
 
             _data.State.Role = role;

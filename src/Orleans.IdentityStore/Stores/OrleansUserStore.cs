@@ -24,6 +24,9 @@ namespace Orleans.IdentityStore.Stores
             _roleStore = roleStore;
         }
 
+        /// <summary>
+        /// The store is not queryable
+        /// </summary>
         public override IQueryable<TUser> Users => throw new NotSupportedException();
 
         /// <summary>
@@ -349,9 +352,13 @@ namespace Orleans.IdentityStore.Stores
             }
 
             var role = await FindRoleAsync(normalizedRoleName, cancellationToken);
-            var users = await _client.GetGrain<IIdentityRoleGrain<TUser, TRole>>(role.Id).GetUsers();
+            if (role != null)
+            {
+                var users = await _client.GetGrain<IIdentityRoleGrain<TUser, TRole>>(role.Id).GetUsers();
+                return (await Task.WhenAll(users.Select(u => UserGrain(u).Get()))).ToList();
+            }
 
-            return (await Task.WhenAll(users.Select(u => UserGrain(u).Get()))).ToList();
+            return new List<TUser>();
         }
 
         /// <summary>

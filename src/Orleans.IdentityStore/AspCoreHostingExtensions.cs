@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using Orleans.IdentityStore.Stores;
-using Orleans.IdentityStore.Tools;
 using System;
 
 namespace Microsoft.Extensions.DependencyInjection
@@ -34,7 +33,7 @@ namespace Microsoft.Extensions.DependencyInjection
             typeof(IUserStore<>).MakeGenericType(builder.UserType),
             typeof(OrleansUserStore<,>).MakeGenericType(builder.UserType, roleType));
 
-            builder.Services.AddSingleton<ILookupNormalizer, LookupNormalizer>();
+            builder.Services.AddSingleton<ILookupNormalizer, UpperInvariantLookupNormalizer>();
             return builder;
         }
     }
