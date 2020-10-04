@@ -18,8 +18,14 @@ namespace Orleans.Hosting
         public static ISiloBuilder UseOrleanIdentityStore(this ISiloBuilder builder)
         {
             builder.ConfigureServices(s => s.AddSingleton<ILookupNormalizer, UpperInvariantLookupNormalizer>());
-            try { builder.AddMemoryGrainStorage(OrleansIdentityConstants.OrleansStorageProvider); }
-            catch { /** PubSubStore was already added. Do nothing. **/ }
+            try
+            {
+                builder.AddMemoryGrainStorage(OrleansIdentityConstants.OrleansStorageProvider);
+            }
+            catch
+            {
+                // Store was already added
+            }
 
             //JsonConvert.DefaultSettings = () =>
             //{
@@ -41,8 +47,14 @@ namespace Orleans.Hosting
         public static ISiloHostBuilder UseOrleanIdentityStore(this ISiloHostBuilder builder)
         {
             builder.ConfigureServices(s => s.AddSingleton<ILookupNormalizer, UpperInvariantLookupNormalizer>());
-            try { builder.AddMemoryGrainStorage(OrleansIdentityConstants.OrleansStorageProvider); }
-            catch { /** Grain storage provider was already added. Do nothing. **/ }
+            try
+            {
+                builder.AddMemoryGrainStorage(OrleansIdentityConstants.OrleansStorageProvider);
+            }
+            catch
+            {
+                // Store was already added
+            }
 
             //JsonConvert.DefaultSettings = () =>
             //{

@@ -9,6 +9,11 @@ using System.Threading.Tasks;
 
 namespace Orleans.IdentityStore.Stores
 {
+    /// <summary>
+    /// A role store backed by Orleans
+    /// </summary>
+    /// <typeparam name="TUser">The user type</typeparam>
+    /// <typeparam name="TRole">The role type</typeparam>
     public class OrleansRoleStore<TUser, TRole> : IRoleClaimStore<TRole>
         where TUser : IdentityUser<Guid>
         where TRole : IdentityRole<Guid>
@@ -16,6 +21,10 @@ namespace Orleans.IdentityStore.Stores
         private readonly IClusterClient _client;
         private bool _disposed;
 
+        /// <summary>
+        /// Creates the role store
+        /// </summary>
+        /// <param name="client">Orleans cluster client</param>
         public OrleansRoleStore(IClusterClient client)
 
         {
@@ -105,6 +114,9 @@ namespace Orleans.IdentityStore.Stores
             return _client.GetGrain<IIdentityRoleGrain<TUser, TRole>>(role.Id).Delete();
         }
 
+        /// <summary>
+        /// Dispose the stores
+        /// </summary>
         public void Dispose()
         {
             _disposed = true;
@@ -322,20 +334,15 @@ namespace Orleans.IdentityStore.Stores
             return _client.GetGrain<IIdentityRoleGrain<TUser, TRole>>(role.Id).Update(role);
         }
 
+        /// <summary>
+        /// Throws if this class has been disposed.
+        /// </summary>
         protected virtual void ThrowIfDisposed()
         {
             if (_disposed)
             {
                 throw new ObjectDisposedException(GetType().Name);
             }
-        }
-    }
-
-    public class OrleansRoleStore<TUser> : OrleansRoleStore<TUser, IdentityRole<Guid>>
-            where TUser : IdentityUser<Guid>
-    {
-        public OrleansRoleStore(IClusterClient client) : base(client)
-        {
         }
     }
 }

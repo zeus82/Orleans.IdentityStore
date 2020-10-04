@@ -28,18 +28,13 @@ namespace Orleans.IdentityStore.Grains
         Task SetId(Guid id);
     }
 
-    internal class IdentityByStingState
-    {
-        public Guid? Id { get; set; }
-    }
-
     internal abstract class IdentityByStringGrain : Grain
 
     {
-        private readonly IPersistentState<IdentityByStingState> _data;
+        private readonly IPersistentState<IdentityByStringState> _data;
 
         protected IdentityByStringGrain(
-            IPersistentState<IdentityByStingState> data)
+            IPersistentState<IdentityByStringState> data)
         {
             _data = data;
         }
@@ -62,5 +57,10 @@ namespace Orleans.IdentityStore.Grains
             _data.State.Id = id;
             return _data.WriteStateAsync();
         }
+    }
+
+    internal class IdentityByStringState
+    {
+        public Guid? Id { get; set; }
     }
 }

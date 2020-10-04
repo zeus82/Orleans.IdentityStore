@@ -9,6 +9,11 @@ using System.Threading.Tasks;
 
 namespace Orleans.IdentityStore.Stores
 {
+    /// <summary>
+    /// A user store backed by Orleans
+    /// </summary>
+    /// <typeparam name="TUser">The user type</typeparam>
+    /// <typeparam name="TRole">The role type</typeparam>
     public class OrleansUserStore<TUser, TRole> :
         UserStoreBase<TUser, TRole, Guid, IdentityUserClaim<Guid>, IdentityUserRole<Guid>, IdentityUserLogin<Guid>, IdentityUserToken<Guid>, IdentityRoleClaim<Guid>>
         where TUser : IdentityUser<Guid>
@@ -18,6 +23,11 @@ namespace Orleans.IdentityStore.Stores
         private readonly IClusterClient _client;
         private readonly IRoleClaimStore<TRole> _roleStore;
 
+        /// <summary>
+        /// Creates the store
+        /// </summary>
+        /// <param name="client">Orleans cluster client</param>
+        /// <param name="roleStore">The corresponding role store</param>
         public OrleansUserStore(IClusterClient client, IRoleClaimStore<TRole> roleStore) : base(new IdentityErrorDescriber())
         {
             _client = client;
@@ -543,6 +553,10 @@ namespace Orleans.IdentityStore.Stores
             return UserGrain(user.Id).Update(user);
         }
 
+        /// <summary>
+        /// Add a new user token.
+        /// </summary>
+        /// <param name="token">The token to be added.</param>
         protected override Task AddUserTokenAsync(IdentityUserToken<Guid> token)
         {
             ThrowIfDisposed();
@@ -554,6 +568,15 @@ namespace Orleans.IdentityStore.Stores
             return UserGrain(token.UserId).AddToken(token);
         }
 
+        /// <summary>
+        /// Return a role with the normalized name if it exists.
+        /// </summary>
+        /// <param name="normalizedRoleName">The normalized role name.</param>
+        /// <param name="cancellationToken">
+        /// The <see cref="CancellationToken"/> used to propagate notifications that the operation
+        /// should be canceled.
+        /// </param>
+        /// <returns>The role if it exists.</returns>
         protected override Task<TRole> FindRoleAsync(string normalizedRoleName, CancellationToken cancellationToken)
         {
             ThrowIfDisposed();
@@ -561,16 +584,48 @@ namespace Orleans.IdentityStore.Stores
             return _roleStore.FindByNameAsync(normalizedRoleName, cancellationToken);
         }
 
+        /// <summary>
+        /// Find a user token if it exists.
+        /// </summary>
+        /// <param name="user">The token owner.</param>
+        /// <param name="loginProvider">The login provider for the token.</param>
+        /// <param name="name">The name of the token.</param>
+        /// <param name="cancellationToken">
+        /// The <see cref="CancellationToken"/> used to propagate notifications that the operation
+        /// should be canceled.
+        /// </param>
+        /// <returns>The user token if it exists.</returns>
         protected override Task<IdentityUserToken<Guid>> FindTokenAsync(TUser user, string loginProvider, string name, CancellationToken cancellationToken)
         {
             return UserGrain(user.Id).GetToken(loginProvider, name);
         }
 
+        /// <summary>
+        /// Return a user with the matching userId if it exists.
+        /// </summary>
+        /// <param name="userId">The user's id.</param>
+        /// <param name="cancellationToken">
+        /// The <see cref="CancellationToken"/> used to propagate notifications that the operation
+        /// should be canceled.
+        /// </param>
+        /// <returns>The user if it exists.</returns>
         protected override Task<TUser> FindUserAsync(Guid userId, CancellationToken cancellationToken)
         {
             return UserGrain(userId).Get();
         }
 
+        /// <summary>
+        /// Return a user login with provider, providerKey if it exists.
+        /// </summary>
+        /// <param name="loginProvider">The login provider name.</param>
+        /// <param name="providerKey">
+        /// The key provided by the <paramref name="loginProvider"/> to identify a user.
+        /// </param>
+        /// <param name="cancellationToken">
+        /// The <see cref="CancellationToken"/> used to propagate notifications that the operation
+        /// should be canceled.
+        /// </param>
+        /// <returns>The user login if it exists.</returns>
         protected override async Task<IdentityUserLogin<Guid>> FindUserLoginAsync(string loginProvider, string providerKey, CancellationToken cancellationToken)
         {
             var userId = await _client.GetGrain<IIdentityUserByLoginGrain>(loginProvider + providerKey).GetId();
@@ -582,11 +637,34 @@ namespace Orleans.IdentityStore.Stores
             return null;
         }
 
+        /// <summary>
+        /// Return a user login with the matching userId, provider, providerKey if it exists.
+        /// </summary>
+        /// <param name="userId">The user's id.</param>
+        /// <param name="loginProvider">The login provider name.</param>
+        /// <param name="providerKey">
+        /// The key provided by the <paramref name="loginProvider"/> to identify a user.
+        /// </param>
+        /// <param name="cancellationToken">
+        /// The <see cref="CancellationToken"/> used to propagate notifications that the operation
+        /// should be canceled.
+        /// </param>
+        /// <returns>The user login if it exists.</returns>
         protected override Task<IdentityUserLogin<Guid>> FindUserLoginAsync(Guid userId, string loginProvider, string providerKey, CancellationToken cancellationToken)
         {
             return UserGrain(userId).GetLogin(loginProvider, providerKey);
         }
 
+        /// <summary>
+        /// Return a user role for the userId and roleId if it exists.
+        /// </summary>
+        /// <param name="userId">The user's id.</param>
+        /// <param name="roleId">The role's id.</param>
+        /// <param name="cancellationToken">
+        /// The <see cref="CancellationToken"/> used to propagate notifications that the operation
+        /// should be canceled.
+        /// </param>
+        /// <returns>The user role if it exists.</returns>
         protected override async Task<IdentityUserRole<Guid>> FindUserRoleAsync(Guid userId, Guid roleId, CancellationToken cancellationToken)
         {
             if (await UserGrain(userId).ContainsRole(roleId))
@@ -600,6 +678,11 @@ namespace Orleans.IdentityStore.Stores
             return null;
         }
 
+        /// <summary>
+        /// Remove a new user token.
+        /// </summary>
+        /// <param name="token">The token to be removed.</param>
+        /// <returns></returns>
         protected override Task RemoveUserTokenAsync(IdentityUserToken<Guid> token)
         {
             return UserGrain(token.UserId).RemoveToken(token);

@@ -33,7 +33,7 @@ namespace Orleans.IdentityStore.Grains
     internal class IdentityRoleByNameGrain : IdentityByStringGrain, IIdentityRoleByNameGrain
     {
         public IdentityRoleByNameGrain(
-            [PersistentState("IdentityByString", OrleansIdentityConstants.OrleansStorageProvider)] IPersistentState<IdentityByStingState> data)
+            [PersistentState("IdentityByString", OrleansIdentityConstants.OrleansStorageProvider)] IPersistentState<IdentityByStringState> data)
             : base(data)
         {
         }
@@ -42,7 +42,7 @@ namespace Orleans.IdentityStore.Grains
     internal class IdentityUserByEmailGrain : IdentityByStringGrain, IIdentityUserByEmailGrain
     {
         public IdentityUserByEmailGrain(
-            [PersistentState("IdentityByString", OrleansIdentityConstants.OrleansStorageProvider)] IPersistentState<IdentityByStingState> data)
+            [PersistentState("IdentityByString", OrleansIdentityConstants.OrleansStorageProvider)] IPersistentState<IdentityByStringState> data)
             : base(data)
         {
         }
@@ -51,7 +51,7 @@ namespace Orleans.IdentityStore.Grains
     internal class IdentityUserByLoginGrain : IdentityByStringGrain, IIdentityUserByLoginGrain
     {
         public IdentityUserByLoginGrain(
-            [PersistentState("IdentityByString", OrleansIdentityConstants.OrleansStorageProvider)] IPersistentState<IdentityByStingState> data)
+            [PersistentState("IdentityByString", OrleansIdentityConstants.OrleansStorageProvider)] IPersistentState<IdentityByStringState> data)
             : base(data)
         {
         }
@@ -60,7 +60,7 @@ namespace Orleans.IdentityStore.Grains
     internal class IdentityUserByNameGrain : IdentityByStringGrain, IIdentityUserByNameGrain
     {
         public IdentityUserByNameGrain(
-            [PersistentState("IdentityByString", OrleansIdentityConstants.OrleansStorageProvider)] IPersistentState<IdentityByStingState> data)
+            [PersistentState("IdentityByString", OrleansIdentityConstants.OrleansStorageProvider)] IPersistentState<IdentityByStringState> data)
             : base(data)
         {
         }

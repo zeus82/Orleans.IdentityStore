@@ -28,6 +28,7 @@
             <typeparam name="TRole">The role type</typeparam>
             <param name="factory">Grain factory</param>
             <param name="id">Role Id</param>
+            <returns>The role grain</returns>
         </member>
         <member name="M:Orleans.Extensions.Role``1(Orleans.IGrainFactory,System.Guid)">
             <summary>
@@ -36,6 +37,7 @@
             <typeparam name="TUser">The user type</typeparam>
             <param name="factory">Grain factory</param>
             <param name="id">Role Id</param>
+            <returns>The role grain</returns>
         </member>
         <member name="M:Orleans.Extensions.Role(Orleans.IGrainFactory,System.Guid)">
             <summary>
@@ -43,6 +45,7 @@
             </summary>
             <param name="factory">Grain factory</param>
             <param name="id">Role Id</param>
+            <returns>The role grain</returns>
         </member>
         <member name="M:Orleans.Extensions.User(Orleans.IGrainFactory,System.Guid)">
             <summary>
@@ -50,6 +53,7 @@
             </summary>
             <param name="factory">Grain factory</param>
             <param name="id">User Id</param>
+            <returns>The user grain</returns>
         </member>
         <member name="M:Orleans.Extensions.User``1(Orleans.IGrainFactory,System.Guid)">
             <summary>
@@ -58,6 +62,7 @@
             <typeparam name="TUser">The user type</typeparam>
             <param name="factory">Grain factory</param>
             <param name="id">User Id</param>
+            <returns>The user grain</returns>
         </member>
         <member name="M:Orleans.Extensions.User``2(Orleans.IGrainFactory,System.Guid)">
             <summary>
@@ -67,6 +72,85 @@
             <typeparam name="TRole">The role type</typeparam>
             <param name="factory">Grain factory</param>
             <param name="id">User Id</param>
+            <returns>The user grain</returns>
+        </member>
+        <member name="M:Orleans.Extensions.UserByEmail``2(Orleans.IGrainFactory,System.String,Microsoft.AspNetCore.Identity.ILookupNormalizer)">
+            <summary>
+            Finds a user by email
+            </summary>
+            <typeparam name="TUser">The user type</typeparam>
+            <typeparam name="TRole">The role type</typeparam>
+            <param name="factory">grain factory</param>
+            <param name="email">The user's email</param>
+            <param name="normalizer">
+            The normalize to user, if none is provided, the default <see
+            cref="T:Microsoft.AspNetCore.Identity.UpperInvariantLookupNormalizer"/> will be used
+            </param>
+            <returns>The user grain</returns>
+        </member>
+        <member name="M:Orleans.Extensions.UserByEmail``1(Orleans.IGrainFactory,System.String,Microsoft.AspNetCore.Identity.ILookupNormalizer)">
+            <summary>
+            Finds a user by email
+            </summary>
+            <typeparam name="TUser">The user type</typeparam>
+            <param name="factory">grain factory</param>
+            <param name="email">The user's email</param>
+            <param name="normalizer">
+            The normalize to user, if none is provided, the default <see
+            cref="T:Microsoft.AspNetCore.Identity.UpperInvariantLookupNormalizer"/> will be used
+            </param>
+            <returns>The user grain</returns>
+        </member>
+        <member name="M:Orleans.Extensions.UserByEmail(Orleans.IGrainFactory,System.String,Microsoft.AspNetCore.Identity.ILookupNormalizer)">
+            <summary>
+            Finds a user by email
+            </summary>
+            <param name="factory">grain factory</param>
+            <param name="email">The user's email</param>
+            <param name="normalizer">
+            The normalize to user, if none is provided, the default <see
+            cref="T:Microsoft.AspNetCore.Identity.UpperInvariantLookupNormalizer"/> will be used
+            </param>
+            <returns>The user grain</returns>
+        </member>
+        <member name="M:Orleans.Extensions.UserByUsername``2(Orleans.IGrainFactory,System.String,Microsoft.AspNetCore.Identity.ILookupNormalizer)">
+            <summary>
+            Finds a user by username
+            </summary>
+            <typeparam name="TUser">The user type</typeparam>
+            <typeparam name="TRole">The role type</typeparam>
+            <param name="factory">grain factory</param>
+            <param name="userName">The username</param>
+            <param name="normalizer">
+            The normalize to user, if none is provided, the default <see
+            cref="T:Microsoft.AspNetCore.Identity.UpperInvariantLookupNormalizer"/> will be used
+            </param>
+            <returns>The user grain</returns>
+        </member>
+        <member name="M:Orleans.Extensions.UserByUsername(Orleans.IGrainFactory,System.String,Microsoft.AspNetCore.Identity.ILookupNormalizer)">
+            <summary>
+            Finds a user by username
+            </summary>
+            <param name="factory">grain factory</param>
+            <param name="userName">The username</param>
+            <param name="normalizer">
+            The normalize to user, if none is provided, the default <see
+            cref="T:Microsoft.AspNetCore.Identity.UpperInvariantLookupNormalizer"/> will be used
+            </param>
+            <returns>The user grain</returns>
+        </member>
+        <member name="M:Orleans.Extensions.UserByUsername``1(Orleans.IGrainFactory,System.String,Microsoft.AspNetCore.Identity.ILookupNormalizer)">
+            <summary>
+            Finds a user by username
+            </summary>
+            <typeparam name="TUser">The user type</typeparam>
+            <param name="factory">grain factory</param>
+            <param name="userName">The username</param>
+            <param name="normalizer">
+            The normalize to user, if none is provided, the default <see
+            cref="T:Microsoft.AspNetCore.Identity.UpperInvariantLookupNormalizer"/> will be used
+            </param>
+            <returns>The user grain</returns>
         </member>
         <member name="T:Orleans.IdentityStore.Grains.IIdentityRoleByNameGrain">
             <summary>
@@ -109,6 +193,228 @@
             </summary>
             <param name="id">The user Id</param>
         </member>
+        <member name="T:Orleans.IdentityStore.Grains.IIdentityClaimGrain">
+            <summary>
+            Identity claim grain
+            </summary>
+        </member>
+        <member name="M:Orleans.IdentityStore.Grains.IIdentityClaimGrain.GetUserIds">
+            <summary>
+            Get the users who have this claim
+            </summary>
+            <returns>The users have have claim</returns>
+        </member>
+        <member name="T:Orleans.IdentityStore.Grains.IIdentityRoleGrain`2">
+            <summary>
+            Identity Role grain
+            </summary>
+            <typeparam name="TUser">The user type</typeparam>
+            <typeparam name="TRole">The role type</typeparam>
+        </member>
+        <member name="M:Orleans.IdentityStore.Grains.IIdentityRoleGrain`2.AddClaim(Microsoft.AspNetCore.Identity.IdentityRoleClaim{System.Guid})">
+            <summary>
+            Adds a claim to the role
+            </summary>
+            <param name="claim">The claim to add</param>
+        </member>
+        <member name="M:Orleans.IdentityStore.Grains.IIdentityRoleGrain`2.AddUser(System.Guid)">
+            <summary>
+            Adds a user to the role
+            </summary>
+            <param name="id">The user to add</param>
+        </member>
+        <member name="M:Orleans.IdentityStore.Grains.IIdentityRoleGrain`2.Create(`1)">
+            <summary>
+            Creates the role
+            </summary>
+            <param name="role">The role to create</param>
+            <returns>Result of the operations</returns>
+        </member>
+        <member name="M:Orleans.IdentityStore.Grains.IIdentityRoleGrain`2.Delete">
+            <summary>
+            Delete the role
+            </summary>
+        </member>
+        <member name="M:Orleans.IdentityStore.Grains.IIdentityRoleGrain`2.Get">
+            <summary>
+            Gets the role
+            </summary>
+            <returns>the role</returns>
+        </member>
+        <member name="M:Orleans.IdentityStore.Grains.IIdentityRoleGrain`2.GetClaims">
+            <summary>
+            Gets all the claims
+            </summary>
+            <returns>The list of claims</returns>
+        </member>
+        <member name="M:Orleans.IdentityStore.Grains.IIdentityRoleGrain`2.GetUsers">
+            <summary>
+            Gets the users associated with this role
+            </summary>
+            <returns>A list of user ids associated with this role</returns>
+        </member>
+        <member name="M:Orleans.IdentityStore.Grains.IIdentityRoleGrain`2.RemoveClaim(System.Security.Claims.Claim)">
+            <summary>
+            Removes a claim from this role
+            </summary>
+            <param name="claim">The claim to remove</param>
+        </member>
+        <member name="M:Orleans.IdentityStore.Grains.IIdentityRoleGrain`2.RemoveUser(System.Guid)">
+            <summary>
+            Removes a user from this role
+            </summary>
+            <param name="id">The user to remove</param>
+        </member>
+        <member name="M:Orleans.IdentityStore.Grains.IIdentityRoleGrain`2.Update(`1)">
+            <summary>
+            Updates the role
+            </summary>
+            <param name="role">The updated role</param>
+            <returns>Result of the operations</returns>
+        </member>
+        <member name="T:Orleans.IdentityStore.Grains.IIdentityUserGrain`2">
+            <summary>
+            Identity user grain
+            </summary>
+            <typeparam name="TUser">The user type</typeparam>
+            <typeparam name="TRole">The role type</typeparam>
+        </member>
+        <member name="M:Orleans.IdentityStore.Grains.IIdentityUserGrain`2.AddClaims(System.Collections.Generic.IList{Microsoft.AspNetCore.Identity.IdentityUserClaim{System.Guid}})">
+            <summary>
+            Add claims to user
+            </summary>
+            <param name="claims">The list of claims to add</param>
+        </member>
+        <member name="M:Orleans.IdentityStore.Grains.IIdentityUserGrain`2.AddLogin(Microsoft.AspNetCore.Identity.IdentityUserLogin{System.Guid})">
+            <summary>
+            Add a login to user
+            </summary>
+            <param name="login">The login to add</param>
+        </member>
+        <member name="M:Orleans.IdentityStore.Grains.IIdentityUserGrain`2.AddToken(Microsoft.AspNetCore.Identity.IdentityUserToken{System.Guid})">
+            <summary>
+            Add a token to user
+            </summary>
+            <param name="token">The token to add</param>
+        </member>
+        <member name="M:Orleans.IdentityStore.Grains.IIdentityUserGrain`2.AddToRole(System.Guid)">
+            <summary>
+            Adds a role to a user
+            </summary>
+            <param name="roleId">The id of the role to add</param>
+        </member>
+        <member name="M:Orleans.IdentityStore.Grains.IIdentityUserGrain`2.ContainsRole(System.Guid)">
+            <summary>
+            Check if user has role
+            </summary>
+            <param name="id">The role id</param>
+            <returns>true if the user has role, false otherwise</returns>
+        </member>
+        <member name="M:Orleans.IdentityStore.Grains.IIdentityUserGrain`2.Create(`0)">
+            <summary>
+            Creates the user
+            </summary>
+            <param name="user">The user data</param>
+            <returns>Result of the operations</returns>
+        </member>
+        <member name="M:Orleans.IdentityStore.Grains.IIdentityUserGrain`2.Delete">
+            <summary>
+            Deletes user
+            </summary>
+        </member>
+        <member name="M:Orleans.IdentityStore.Grains.IIdentityUserGrain`2.Get">
+            <summary>
+            Get the user
+            </summary>
+            <returns>The user</returns>
+        </member>
+        <member name="M:Orleans.IdentityStore.Grains.IIdentityUserGrain`2.GetClaims">
+            <summary>
+            Get the claims associated with this user
+            </summary>
+            <returns>A list of claims</returns>
+        </member>
+        <member name="M:Orleans.IdentityStore.Grains.IIdentityUserGrain`2.GetLogin(System.String,System.String)">
+            <summary>
+            Gets the login for the current usr
+            </summary>
+            <param name="loginProvider">The login provider</param>
+            <param name="providerKey">The login key</param>
+            <returns>The loging</returns>
+        </member>
+        <member name="M:Orleans.IdentityStore.Grains.IIdentityUserGrain`2.GetLogins">
+            <summary>
+            Gets all the logins for the current user
+            </summary>
+            <returns>A list of logins</returns>
+        </member>
+        <member name="M:Orleans.IdentityStore.Grains.IIdentityUserGrain`2.GetRoles">
+            <summary>
+            Gets the roles for the current user
+            </summary>
+            <returns>A list of role names</returns>
+        </member>
+        <member name="M:Orleans.IdentityStore.Grains.IIdentityUserGrain`2.GetToken(System.String,System.String)">
+            <summary>
+            Gets a token
+            </summary>
+            <param name="loginProvider">The login provider</param>
+            <param name="name">The name</param>
+            <returns>The user token</returns>
+        </member>
+        <member name="M:Orleans.IdentityStore.Grains.IIdentityUserGrain`2.RemoveClaims(System.Collections.Generic.IList{System.Security.Claims.Claim})">
+            <summary>
+            Remove claims for current user
+            </summary>
+            <param name="claims">A list of claims to remove</param>
+        </member>
+        <member name="M:Orleans.IdentityStore.Grains.IIdentityUserGrain`2.RemoveLogin(System.String,System.String)">
+            <summary>
+            Removes a login from the current user
+            </summary>
+            <param name="loginProvider">The login provider</param>
+            <param name="providerKey">The login key</param>
+        </member>
+        <member name="M:Orleans.IdentityStore.Grains.IIdentityUserGrain`2.RemoveRole(System.Guid,System.Boolean)">
+            <summary>
+            Removes a role from the current user
+            </summary>
+            <param name="id">The ID of the role to remove</param>
+            <param name="updateRoleGrain">if true, will remove user from role grain</param>
+        </member>
+        <member name="M:Orleans.IdentityStore.Grains.IIdentityUserGrain`2.RemoveToken(Microsoft.AspNetCore.Identity.IdentityUserToken{System.Guid})">
+            <summary>
+            Removes token from user
+            </summary>
+            <param name="token">the token to remove</param>
+        </member>
+        <member name="M:Orleans.IdentityStore.Grains.IIdentityUserGrain`2.ReplaceClaims(System.Security.Claims.Claim,System.Security.Claims.Claim)">
+            <summary>
+            Replaces claims for the current user
+            </summary>
+            <param name="claim">The claim to replace</param>
+            <param name="newClaim">The new claim</param>
+        </member>
+        <member name="M:Orleans.IdentityStore.Grains.IIdentityUserGrain`2.Update(`0)">
+            <summary>
+            Updates the current user
+            </summary>
+            <param name="user">The updated user</param>
+            <returns>Result of the operations</returns>
+        </member>
+        <member name="T:Orleans.IdentityStore.Stores.OrleansRoleStore`2">
+            <summary>
+            A role store backed by Orleans
+            </summary>
+            <typeparam name="TUser">The user type</typeparam>
+            <typeparam name="TRole">The role type</typeparam>
+        </member>
+        <member name="M:Orleans.IdentityStore.Stores.OrleansRoleStore`2.#ctor(Orleans.IClusterClient)">
+            <summary>
+            Creates the role store
+            </summary>
+            <param name="client">Orleans cluster client</param>
+        </member>
         <member name="M:Orleans.IdentityStore.Stores.OrleansRoleStore`2.AddClaimAsync(`1,System.Security.Claims.Claim,System.Threading.CancellationToken)">
             <summary>
             Adds the <paramref name="claim"/> given to the specified <paramref name="role"/>.
@@ -148,6 +454,11 @@
             A <see cref="T:System.Threading.Tasks.Task`1"/> that represents the <see cref="T:Microsoft.AspNetCore.Identity.IdentityResult"/> of the
             asynchronous query.
             </returns>
+        </member>
+        <member name="M:Orleans.IdentityStore.Stores.OrleansRoleStore`2.Dispose">
+            <summary>
+            Dispose the stores
+            </summary>
         </member>
         <member name="M:Orleans.IdentityStore.Stores.OrleansRoleStore`2.FindByIdAsync(System.String,System.Threading.CancellationToken)">
             <summary>
@@ -264,6 +575,25 @@
             A <see cref="T:System.Threading.Tasks.Task`1"/> that represents the <see cref="T:Microsoft.AspNetCore.Identity.IdentityResult"/> of the
             asynchronous query.
             </returns>
+        </member>
+        <member name="M:Orleans.IdentityStore.Stores.OrleansRoleStore`2.ThrowIfDisposed">
+            <summary>
+            Throws if this class has been disposed.
+            </summary>
+        </member>
+        <member name="T:Orleans.IdentityStore.Stores.OrleansUserStore`2">
+            <summary>
+            A user store backed by Orleans
+            </summary>
+            <typeparam name="TUser">The user type</typeparam>
+            <typeparam name="TRole">The role type</typeparam>
+        </member>
+        <member name="M:Orleans.IdentityStore.Stores.OrleansUserStore`2.#ctor(Orleans.IClusterClient,Microsoft.AspNetCore.Identity.IRoleClaimStore{`1})">
+            <summary>
+            Creates the store
+            </summary>
+            <param name="client">Orleans cluster client</param>
+            <param name="roleStore">The corresponding role store</param>
         </member>
         <member name="P:Orleans.IdentityStore.Stores.OrleansUserStore`2.Users">
             <summary>
@@ -522,6 +852,95 @@
             The <see cref="T:System.Threading.Tasks.Task"/> that represents the asynchronous operation, containing the <see
             cref="T:Microsoft.AspNetCore.Identity.IdentityResult"/> of the update operation.
             </returns>
+        </member>
+        <member name="M:Orleans.IdentityStore.Stores.OrleansUserStore`2.AddUserTokenAsync(Microsoft.AspNetCore.Identity.IdentityUserToken{System.Guid})">
+            <summary>
+            Add a new user token.
+            </summary>
+            <param name="token">The token to be added.</param>
+        </member>
+        <member name="M:Orleans.IdentityStore.Stores.OrleansUserStore`2.FindRoleAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Return a role with the normalized name if it exists.
+            </summary>
+            <param name="normalizedRoleName">The normalized role name.</param>
+            <param name="cancellationToken">
+            The <see cref="T:System.Threading.CancellationToken"/> used to propagate notifications that the operation
+            should be canceled.
+            </param>
+            <returns>The role if it exists.</returns>
+        </member>
+        <member name="M:Orleans.IdentityStore.Stores.OrleansUserStore`2.FindTokenAsync(`0,System.String,System.String,System.Threading.CancellationToken)">
+            <summary>
+            Find a user token if it exists.
+            </summary>
+            <param name="user">The token owner.</param>
+            <param name="loginProvider">The login provider for the token.</param>
+            <param name="name">The name of the token.</param>
+            <param name="cancellationToken">
+            The <see cref="T:System.Threading.CancellationToken"/> used to propagate notifications that the operation
+            should be canceled.
+            </param>
+            <returns>The user token if it exists.</returns>
+        </member>
+        <member name="M:Orleans.IdentityStore.Stores.OrleansUserStore`2.FindUserAsync(System.Guid,System.Threading.CancellationToken)">
+            <summary>
+            Return a user with the matching userId if it exists.
+            </summary>
+            <param name="userId">The user's id.</param>
+            <param name="cancellationToken">
+            The <see cref="T:System.Threading.CancellationToken"/> used to propagate notifications that the operation
+            should be canceled.
+            </param>
+            <returns>The user if it exists.</returns>
+        </member>
+        <member name="M:Orleans.IdentityStore.Stores.OrleansUserStore`2.FindUserLoginAsync(System.String,System.String,System.Threading.CancellationToken)">
+            <summary>
+            Return a user login with provider, providerKey if it exists.
+            </summary>
+            <param name="loginProvider">The login provider name.</param>
+            <param name="providerKey">
+            The key provided by the <paramref name="loginProvider"/> to identify a user.
+            </param>
+            <param name="cancellationToken">
+            The <see cref="T:System.Threading.CancellationToken"/> used to propagate notifications that the operation
+            should be canceled.
+            </param>
+            <returns>The user login if it exists.</returns>
+        </member>
+        <member name="M:Orleans.IdentityStore.Stores.OrleansUserStore`2.FindUserLoginAsync(System.Guid,System.String,System.String,System.Threading.CancellationToken)">
+            <summary>
+            Return a user login with the matching userId, provider, providerKey if it exists.
+            </summary>
+            <param name="userId">The user's id.</param>
+            <param name="loginProvider">The login provider name.</param>
+            <param name="providerKey">
+            The key provided by the <paramref name="loginProvider"/> to identify a user.
+            </param>
+            <param name="cancellationToken">
+            The <see cref="T:System.Threading.CancellationToken"/> used to propagate notifications that the operation
+            should be canceled.
+            </param>
+            <returns>The user login if it exists.</returns>
+        </member>
+        <member name="M:Orleans.IdentityStore.Stores.OrleansUserStore`2.FindUserRoleAsync(System.Guid,System.Guid,System.Threading.CancellationToken)">
+            <summary>
+            Return a user role for the userId and roleId if it exists.
+            </summary>
+            <param name="userId">The user's id.</param>
+            <param name="roleId">The role's id.</param>
+            <param name="cancellationToken">
+            The <see cref="T:System.Threading.CancellationToken"/> used to propagate notifications that the operation
+            should be canceled.
+            </param>
+            <returns>The user role if it exists.</returns>
+        </member>
+        <member name="M:Orleans.IdentityStore.Stores.OrleansUserStore`2.RemoveUserTokenAsync(Microsoft.AspNetCore.Identity.IdentityUserToken{System.Guid})">
+            <summary>
+            Remove a new user token.
+            </summary>
+            <param name="token">The token to be removed.</param>
+            <returns></returns>
         </member>
         <member name="T:Orleans.Hosting.SiloBuilderExtensions">
             <summary>
