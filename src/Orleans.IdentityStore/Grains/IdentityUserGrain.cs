@@ -154,7 +154,7 @@ namespace Orleans.IdentityStore.Grains
         where TRole : IdentityRole<Guid>, new()
     {
         private readonly IPersistentState<IdentityUserGrainState<TUser, TRole>> _data;
-
+        private readonly IdentityErrorDescriber _errorDescriber = new IdentityErrorDescriber();
         private readonly ILookupNormalizer _normalizer;
         private Guid _id;
 
@@ -227,22 +227,21 @@ namespace Orleans.IdentityStore.Grains
 
         public async Task<IdentityResult> Create(TUser user)
         {
-            if (Exists ||
-                string.IsNullOrEmpty(user.Email) ||
-                string.IsNullOrEmpty(user.UserName))
-            {
-                return IdentityResult.Failed();
-            }
+            if (Exists)
+                return IdentityResult.Failed(_errorDescriber.LoginAlreadyAssociated());
+            if (string.IsNullOrEmpty(user.Email))
+                return IdentityResult.Failed(_errorDescriber.InvalidEmail(user.Email));
+            if (string.IsNullOrEmpty(user.UserName))
+                return IdentityResult.Failed(_errorDescriber.InvalidUserName(user.UserName));
 
             // Make sure to set normalized username and email
             user.NormalizedEmail = _normalizer.NormalizeEmail(user.Email);
             user.NormalizedUserName = _normalizer.NormalizeName(user.UserName);
 
-            if ((await GrainFactory.GetGrain<IIdentityUserByEmailGrain>(user.NormalizedEmail).GetId()) != null ||
-                (await GrainFactory.GetGrain<IIdentityUserByNameGrain>(user.NormalizedUserName).GetId()) != null)
-            {
-                return IdentityResult.Failed();
-            }
+            if ((await GrainFactory.GetGrain<IIdentityUserByEmailGrain>(user.NormalizedEmail).GetId()) != null)
+                return IdentityResult.Failed(_errorDescriber.DuplicateEmail(user.Email));
+            if ((await GrainFactory.GetGrain<IIdentityUserByNameGrain>(user.NormalizedUserName).GetId()) != null)
+                return IdentityResult.Failed(_errorDescriber.DuplicateUserName(user.UserName));
 
             _data.State.User = user;
 
@@ -256,7 +255,7 @@ namespace Orleans.IdentityStore.Grains
         public async Task<IdentityResult> Delete()
         {
             if (_data.State.User == null)
-                return IdentityResult.Failed();
+                return IdentityResult.Failed(_errorDescriber.DefaultError());
 
             await GrainFactory.GetGrain<IIdentityUserByEmailGrain>(_data.State.User.NormalizedEmail).ClearId();
             await GrainFactory.GetGrain<IIdentityUserByNameGrain>(_data.State.User.NormalizedUserName).ClearId();
@@ -416,12 +415,29 @@ namespace Orleans.IdentityStore.Grains
 
         public async Task<IdentityResult> Update(TUser user)
         {
-            if (_data.State.User == null || user == null || string.IsNullOrEmpty(user.Email) || string.IsNullOrEmpty(user.UserName))
-                return IdentityResult.Failed();
+            if (_data.State.User == null)
+                return IdentityResult.Failed(_errorDescriber.DefaultError());
+            if (string.IsNullOrEmpty(user.Email))
+                return IdentityResult.Failed(_errorDescriber.InvalidEmail(user.Email));
+            if (string.IsNullOrEmpty(user.UserName))
+                return IdentityResult.Failed(_errorDescriber.InvalidUserName(user.UserName));
 
             // Make sure to set normalized username and email
             user.NormalizedEmail = _normalizer.NormalizeEmail(user.Email);
             user.NormalizedUserName = _normalizer.NormalizeName(user.UserName);
+
+            // Make sure the new user name and email aren't already in use
+            if (user.NormalizedEmail != _data.State.User.NormalizedEmail &&
+                (await GrainFactory.GetGrain<IIdentityUserByEmailGrain>(user.NormalizedEmail).GetId()) != null)
+            {
+                return IdentityResult.Failed(_errorDescriber.DuplicateEmail(user.Email));
+            }
+
+            if (user.NormalizedUserName != _data.State.User.NormalizedUserName &&
+                (await GrainFactory.GetGrain<IIdentityUserByNameGrain>(user.NormalizedUserName).GetId()) != null)
+            {
+                return IdentityResult.Failed(_errorDescriber.DuplicateUserName(user.UserName));
+            }
 
             if (user.NormalizedEmail != _data.State.User.NormalizedEmail)
             {

@@ -402,6 +402,16 @@
             <param name="user">The updated user</param>
             <returns>Result of the operations</returns>
         </member>
+        <member name="T:Orleans.IdentityStore.OrleansIdentityConstants">
+            <summary>
+            Constants used by library
+            </summary>
+        </member>
+        <member name="F:Orleans.IdentityStore.OrleansIdentityConstants.OrleansStorageProvider">
+            <summary>
+            The grains persistences name
+            </summary>
+        </member>
         <member name="T:Orleans.IdentityStore.Stores.OrleansRoleStore`2">
             <summary>
             A role store backed by Orleans
