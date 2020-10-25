@@ -20,6 +20,6 @@ jobs:
     - name: Install dependencies
       run: dotnet restore Orleans.IdentityStore.sln
     - name: Build
-      run: dotnet buildOrleans.IdentityStore.sln --configuration Release --no-restore
+      run: dotnet build Orleans.IdentityStore.sln --configuration Release --no-restore
     - name: Test
       run: dotnet test Orleans.IdentityStore.sln --no-restore --configuration Release --verbosity normal
